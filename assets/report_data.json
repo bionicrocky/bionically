@@ -1,0 +1,1080 @@
+{
+  "generated_at": "2026-03-30T23:23:40.199Z",
+  "health_score": 79,
+  "total_tests": 35,
+  "successful_tests": 10,
+  "failed_tests": 25,
+  "device_count": 5,
+  "problem_count": 7,
+  "metrics": [
+    {
+      "key": "linkSignalLevelMean",
+      "name": "Signal Strength (RSSI)",
+      "unit": "dBm",
+      "good": -65,
+      "accept": -72,
+      "direction": "higher",
+      "weight": 15,
+      "description": "Received signal power at the client device. The primary indicator of connection quality.",
+      "source": "Cisco Site Survey Guidelines, NetAlly Wi-Fi Design Guide",
+      "source_url": "https://www.cisco.com/c/en/us/support/docs/wireless/5500-series-wireless-controllers/116057-site-survey-guidelines-wlan-00.html",
+      "detail": "RSSI measures the power level of the Wi-Fi signal received by the client device. Industry consensus (Cisco, CWNA, NetAlly) targets -65 dBm or better for voice/video applications and -72 dBm as the minimum for reliable data connectivity. Below -75 dBm, most vendors flag connections as marginal with high error rates.",
+      "why_good": "Your average RSSI of {avg} dBm is well above the -65 dBm threshold for voice/video. Clients are receiving strong signal from nearby APs, enabling high MCS rates and reliable connections. This indicates good AP placement and density.",
+      "why_bad": "Your average RSSI of {avg} dBm falls below the -65 dBm threshold. Clients are too far from APs or obstructions are attenuating the signal. This forces lower MCS rates, higher retry rates, and potential roaming issues. Consider adding APs or adjusting power levels.",
+      "learn_more": [
+        {
+          "title": "Cisco: Site Survey Guidelines for WLANs",
+          "url": "https://www.cisco.com/c/en/us/support/docs/wireless/5500-series-wireless-controllers/116057-site-survey-guidelines-wlan-00.html"
+        },
+        {
+          "title": "NetAlly: Wi-Fi Signal Strength & Coverage",
+          "url": "https://www.netally.com/tech-tips/wi-fi-signal-strength/"
+        },
+        {
+          "title": "NetAlly: AirMapper Wi-Fi Survey Tool",
+          "url": "https://www.netally.com/products/airmapper/"
+        }
+      ],
+      "values": [
+        -33,
+        -44,
+        -42,
+        -50,
+        -53,
+        -60,
+        -57,
+        -62,
+        -56,
+        -74,
+        -31,
+        -53,
+        -50,
+        -53,
+        -26,
+        -29,
+        -37
+      ],
+      "avg": -47.6,
+      "min": -74,
+      "max": -26,
+      "count": 17,
+      "score": 96.2,
+      "why": "Your average RSSI of -47.6 dBm is well above the -65 dBm threshold for voice/video. Clients are receiving strong signal from nearby APs, enabling high MCS rates and reliable connections. This indicates good AP placement and density.",
+      "is_good": true
+    },
+    {
+      "key": "linkSNRMean",
+      "name": "Signal-to-Noise Ratio (SNR)",
+      "unit": "dB",
+      "good": 25,
+      "accept": 20,
+      "direction": "higher",
+      "weight": 15,
+      "description": "Gap between signal and noise floor. More reliable than RSSI alone.",
+      "source": "Cisco Meraki, NetAlly SNR Guide, CWNA Study Guide",
+      "source_url": "https://documentation.meraki.com/Wireless/Design_and_Configure/Architecture_and_Best_Practices/Signal-to-Noise_Ratio_(SNR)_and_Wireless_Signal_Strength",
+      "detail": "SNR accounts for both signal strength and the noise floor, making it a more reliable predictor of connection quality than RSSI alone. Cisco requires >= 25 dB for voice-grade WLANs; Meraki reduces AP health scores below 16 dB. The CWNA Study Guide defines 25+ dB as excellent, 15-25 dB as acceptable for data, and < 10 dB as unusable.",
+      "why_good": "Your average SNR of {avg} dB far exceeds the 25 dB voice-grade minimum. The noise floor is low relative to signal strength, meaning the RF environment is clean. Higher-order modulation schemes (256-QAM, 1024-QAM) can be sustained, maximizing throughput.",
+      "why_bad": "Your average SNR of {avg} dB is below the 25 dB threshold needed for reliable voice/video. Either the signal is weak, the noise floor is elevated, or both. Low SNR forces the radio to fall back to lower MCS rates, reducing throughput. Investigate noise sources (non-Wi-Fi interferers, co-channel APs).",
+      "learn_more": [
+        {
+          "title": "Cisco Meraki: SNR and Signal Strength",
+          "url": "https://documentation.meraki.com/Wireless/Design_and_Configure/Architecture_and_Best_Practices/Signal-to-Noise_Ratio_(SNR)_and_Wireless_Signal_Strength"
+        },
+        {
+          "title": "NetAlly: Understanding Noise with Wi-Fi SNR",
+          "url": "https://www.netally.com/tech-tips/understand-noise-with-wi-fi-snr/"
+        },
+        {
+          "title": "PulseGeek: RSSI, SNR & MCS Planning for Wi-Fi",
+          "url": "https://pulsegeek.com/articles/rssi-snr-and-mcs-planning-for-wifi-8-coverage/"
+        }
+      ],
+      "values": [
+        57,
+        46,
+        48,
+        40,
+        37,
+        30,
+        33,
+        28,
+        34,
+        16,
+        59,
+        0,
+        40,
+        37,
+        64,
+        61,
+        53
+      ],
+      "avg": 40.2,
+      "min": 0,
+      "max": 64,
+      "count": 17,
+      "score": 88.8,
+      "why": "Your average SNR of 40.2 dB far exceeds the 25 dB voice-grade minimum. The noise floor is low relative to signal strength, meaning the RF environment is clean. Higher-order modulation schemes (256-QAM, 1024-QAM) can be sustained, maximizing throughput.",
+      "is_good": true
+    },
+    {
+      "key": "linkNoiseLevelMean",
+      "name": "Noise Floor",
+      "unit": "dBm",
+      "good": -90,
+      "accept": -85,
+      "direction": "lower",
+      "weight": 8,
+      "description": "Ambient RF energy. Elevated noise compresses SNR even with strong signal.",
+      "source": "IEEE 802.11-2020, Cisco VoWLAN Design Guide",
+      "source_url": "https://www.cisco.com/en/US/docs/solutions/Enterprise/Mobility/emob30dg/Voice.html",
+      "detail": "The noise floor represents all non-signal RF energy on the channel. A clean enterprise environment should see -90 to -98 dBm. Values above -85 dBm compress SNR significantly. At -80 dBm, Clear Channel Assessment (CCA) begins deferring transmissions, causing throughput collapse regardless of signal strength.",
+      "why_good": "Your average noise floor of {avg} dBm is at or below -90 dBm, indicating a clean RF environment with minimal interference. This preserves SNR headroom and allows clients to use high-efficiency modulation. No remediation needed.",
+      "why_bad": "Your average noise floor of {avg} dBm is elevated above the -90 dBm target. Sources may include microwave ovens, Bluetooth, DECT phones, fluorescent lighting, or poorly shielded electronics. Elevated noise directly compresses SNR, which reduces data rates even when signal strength is adequate. Use spectrum analysis to identify and mitigate interference sources.",
+      "learn_more": [
+        {
+          "title": "Cisco: VoWLAN RF Design Guide",
+          "url": "https://www.cisco.com/en/US/docs/solutions/Enterprise/Mobility/emob30dg/Voice.html"
+        },
+        {
+          "title": "NetAlly: AirCheck G3 Air Quality Profiles",
+          "url": "https://www.netally.com/user-guides/aircheckg3/Content/B_Testing-Applications/AutoTest/Air-Quality-AutoTest-Profiles.htm"
+        }
+      ],
+      "values": [
+        -90,
+        -90,
+        -90,
+        -90,
+        -90,
+        -90,
+        -90,
+        -90,
+        -90,
+        -90,
+        -90,
+        -53,
+        -90,
+        -90,
+        -90,
+        -90,
+        -90
+      ],
+      "avg": -87.8,
+      "min": -90,
+      "max": -53,
+      "count": 17,
+      "score": 94.1,
+      "why": "Your average noise floor of -87.8 dBm is at or below -90 dBm, indicating a clean RF environment with minimal interference. This preserves SNR headroom and allows clients to use high-efficiency modulation. No remediation needed.",
+      "is_good": true
+    },
+    {
+      "key": "apChannelUtil",
+      "name": "Channel Utilization",
+      "unit": "%",
+      "good": 30,
+      "accept": 50,
+      "direction": "lower",
+      "weight": 12,
+      "description": "Percentage of airtime consumed by Wi-Fi transmissions. Best indicator of capacity.",
+      "source": "Mist/Juniper Design Guide, 7SIGNAL, Arista Community",
+      "source_url": "https://design.mist.com/snr-co-channel-contention/",
+      "detail": "Channel utilization measures the percentage of available airtime being consumed. Below 30% provides excellent user experience. Industry consensus sets 50% as the ceiling before degradation becomes severe. Mist/Juniper documents state 50-80% degrades VoIP and video. This is the single best indicator of capacity exhaustion.",
+      "why_good": "Your average channel utilization of {avg}% is well below 30%, meaning there is plenty of available airtime. Clients experience minimal contention and low latency. The network has significant capacity headroom for additional users or applications.",
+      "why_bad": "Your average channel utilization of {avg}% exceeds the 30% target. Airtime contention is reducing throughput for all clients on this channel. Causes include too many clients per AP, sticky clients, co-channel interference, or high-bandwidth applications. Consider band steering to 5/6 GHz, reducing AP power to limit cell size, or adding APs.",
+      "learn_more": [
+        {
+          "title": "Mist/Juniper: SNR & Co-Channel Contention Design",
+          "url": "https://design.mist.com/snr-co-channel-contention/"
+        },
+        {
+          "title": "7SIGNAL: Co-Channel Interference",
+          "url": "https://7signal.com/blog/co-channel-interference/"
+        },
+        {
+          "title": "Arista: Retry Rate & Utilization Thresholds",
+          "url": "https://arista.my.site.com/AristaCommunity/s/question/0D5Uw00000TkpGaKAJ/"
+        }
+      ],
+      "values": [
+        7,
+        2,
+        5,
+        6,
+        2,
+        2,
+        2,
+        2,
+        2,
+        3,
+        1,
+        1,
+        2,
+        3,
+        7,
+        5
+      ],
+      "avg": 3.2,
+      "min": 1,
+      "max": 7,
+      "count": 16,
+      "score": 100.0,
+      "why": "Your average channel utilization of 3.2% is well below 30%, meaning there is plenty of available airtime. Clients experience minimal contention and low latency. The network has significant capacity headroom for additional users or applications.",
+      "is_good": true
+    },
+    {
+      "key": "apNon80211ChannelUtil",
+      "name": "Non-802.11 Interference",
+      "unit": "%",
+      "good": 5,
+      "accept": 15,
+      "direction": "lower",
+      "weight": 5,
+      "description": "Airtime from non-Wi-Fi sources (microwaves, Bluetooth, DECT phones).",
+      "source": "NetAlly AirCheck G3 Air Quality Profiles",
+      "source_url": "https://www.netally.com/user-guides/aircheckg3/Content/B_Testing-Applications/AutoTest/Air-Quality-AutoTest-Profiles.htm",
+      "detail": "Non-802.11 interference comes from devices like microwaves, Bluetooth, DECT phones, and video bridges that operate in the same frequency bands as Wi-Fi but don't follow 802.11 protocol. These sources are invisible to standard Wi-Fi chipsets and require spectrum analysis to detect. Above 15% indicates an active interferer requiring remediation.",
+      "why_good": "Your non-802.11 interference of {avg}% is negligible. No significant non-Wi-Fi RF sources are competing for airtime. The spectrum is clean for Wi-Fi operation.",
+      "why_bad": "Your non-802.11 interference of {avg}% indicates active RF sources outside the 802.11 protocol are consuming airtime. Common culprits: microwave ovens (2.4 GHz), Bluetooth (2.4 GHz), DECT cordless phones, wireless cameras, baby monitors. Use a spectrum analyzer (NetAlly AirCheck G3 or CyberScope) to identify and locate the source.",
+      "learn_more": [
+        {
+          "title": "NetAlly: AirCheck G3 Air Quality AutoTest",
+          "url": "https://www.netally.com/user-guides/aircheckg3/Content/B_Testing-Applications/AutoTest/Air-Quality-AutoTest-Profiles.htm"
+        },
+        {
+          "title": "NetAlly: Spectrum Analysis with CyberScope",
+          "url": "https://www.netally.com/products/cyberscope/"
+        }
+      ],
+      "values": [
+        0,
+        0,
+        0,
+        0.07,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "avg": 0.0,
+      "min": 0,
+      "max": 0.1,
+      "count": 16,
+      "score": 100.0,
+      "why": "Your non-802.11 interference of 0.0% is negligible. No significant non-Wi-Fi RF sources are competing for airtime. The spectrum is clean for Wi-Fi operation.",
+      "is_good": true
+    },
+    {
+      "key": "linkRetryRateMean",
+      "name": "Retry Rate",
+      "unit": "%",
+      "good": 10,
+      "accept": 20,
+      "direction": "lower",
+      "weight": 10,
+      "description": "Percentage of frames requiring retransmission. Directly consumes airtime.",
+      "source": "Arista Community, Extreme Networks, CWNA",
+      "source_url": "https://arista.my.site.com/AristaCommunity/s/question/0D5Uw00000TkpGaKAJ/",
+      "detail": "The retry rate represents 802.11 frames that had to be retransmitted due to collisions, interference, or acknowledgment failures. Each retry consumes additional airtime, creating a compound capacity problem. Below 10% is normal operation. Arista and Extreme Networks flag sustained rates above 20% as critical, requiring investigation.",
+      "why_good": "Your average retry rate of {avg}% is well below 10%, indicating clean transmissions with very few frame retries. Clients are successfully delivering data on the first attempt, preserving airtime for other traffic.",
+      "why_bad": "Your average retry rate of {avg}% exceeds the 10% threshold. Each retransmission doubles the airtime cost of that frame and adds latency. Root causes include: hidden nodes, co-channel interference, clients at the cell edge (low RSSI), or non-802.11 interference corrupting frames. Cross-reference with SNR and channel utilization to diagnose.",
+      "learn_more": [
+        {
+          "title": "Arista: Retry Rate & Utilization Thresholds",
+          "url": "https://arista.my.site.com/AristaCommunity/s/question/0D5Uw00000TkpGaKAJ/"
+        },
+        {
+          "title": "Extreme Networks: Understanding High Retry Percentages",
+          "url": "https://community.extremenetworks.com/t5/extremewireless-wing/understanding-high-quot-retry-percentage-quot-values/td-p/89545"
+        }
+      ],
+      "values": [
+        0,
+        0,
+        1,
+        1,
+        6,
+        3,
+        0,
+        5,
+        1,
+        2,
+        0,
+        0,
+        0,
+        6,
+        0,
+        0,
+        0
+      ],
+      "avg": 1.5,
+      "min": 0,
+      "max": 6,
+      "count": 17,
+      "score": 100.0,
+      "why": "Your average retry rate of 1.5% is well below 10%, indicating clean transmissions with very few frame retries. Clients are successfully delivering data on the first attempt, preserving airtime for other traffic.",
+      "is_good": true
+    },
+    {
+      "key": "linkPhyDataRate",
+      "name": "PHY Data Rate",
+      "unit": "Mbps",
+      "good": 400,
+      "accept": 100,
+      "direction": "higher",
+      "weight": 7,
+      "description": "Negotiated physical layer rate. Reflects signal quality, channel width, and streams.",
+      "source": "7SIGNAL MCS Rate Analysis, IEEE 802.11ax",
+      "source_url": "https://7signal.com/blog/mcs-rates-and-network-health/",
+      "detail": "The PHY data rate is the negotiated physical layer speed, determined by the MCS (Modulation and Coding Scheme) index. It reflects the combined effect of signal quality, channel width, spatial streams, and guard interval. 7SIGNAL recommends MCS 7+ everywhere. For Wi-Fi 6 with 80 MHz channels: 400+ Mbps is good, 100-400 Mbps acceptable.",
+      "why_good": "Your average PHY rate of {avg} Mbps exceeds 400 Mbps, indicating clients are negotiating high MCS indices with wide channels. This reflects strong signal quality and clean RF, enabling high-throughput applications like video conferencing and large file transfers.",
+      "why_bad": "Your average PHY rate of {avg} Mbps is below the 400 Mbps target. Clients are falling back to lower MCS indices due to poor signal quality, narrow channel widths, or single-stream operation. This limits application performance. Check RSSI, SNR, and channel width configuration on your APs.",
+      "learn_more": [
+        {
+          "title": "7SIGNAL: MCS Rates and Network Health",
+          "url": "https://7signal.com/blog/mcs-rates-and-network-health/"
+        },
+        {
+          "title": "PulseGeek: RSSI, SNR & MCS Planning",
+          "url": "https://pulsegeek.com/articles/rssi-snr-and-mcs-planning-for-wifi-8-coverage/"
+        }
+      ],
+      "values": [
+        1441.2,
+        1729.4,
+        516.2,
+        516.2,
+        288.2,
+        1297.1,
+        1441.2,
+        1441.2,
+        1441.2,
+        864.7,
+        573.5,
+        573.5,
+        573.5
+      ],
+      "avg": 976.7,
+      "min": 288.2,
+      "max": 1729.4,
+      "count": 13,
+      "score": 98.6,
+      "why": "Your average PHY rate of 976.7 Mbps exceeds 400 Mbps, indicating clients are negotiating high MCS indices with wide channels. This reflects strong signal quality and clean RF, enabling high-throughput applications like video conferencing and large file transfers.",
+      "is_good": true
+    },
+    {
+      "key": "linkPhyPctOfMaxDataRateMean",
+      "name": "% of Max Data Rate",
+      "unit": "%",
+      "good": 60,
+      "accept": 30,
+      "direction": "higher",
+      "weight": 7,
+      "description": "How much of the device's maximum capability is being achieved.",
+      "source": "NetAlly EtherScope/CyberScope Metrics",
+      "source_url": "https://www.netally.com/products/link-live/",
+      "detail": "This metric normalizes the PHY data rate against the theoretical maximum for the device's radio capabilities, accounting for channel width, spatial streams, and protocol version. A value of 60%+ indicates efficient use of the available radio. Below 30% suggests the client is rate-limited by RF conditions and likely experiencing poor performance.",
+      "why_good": "Your devices are achieving {avg}% of their maximum data rate capability, indicating efficient radio utilization. The RF environment supports high-order modulation, and AP configuration (channel width, spatial streams) is well-matched to device capabilities.",
+      "why_bad": "Your devices are only achieving {avg}% of their maximum data rate. This means RF conditions are forcing the radio to operate well below its potential. Common causes: AP configured for narrow channel width, spatial stream mismatch, weak signal forcing low MCS, or excessive interference. Check AP channel width and power settings.",
+      "learn_more": [
+        {
+          "title": "NetAlly: Link-Live Cloud Service",
+          "url": "https://www.netally.com/products/link-live/"
+        },
+        {
+          "title": "NetAlly: EtherScope nXG Features",
+          "url": "https://www.netally.com/products/etherscopenxg/"
+        }
+      ],
+      "values": [
+        59,
+        63,
+        78,
+        69,
+        42,
+        56,
+        57,
+        62,
+        53,
+        49,
+        55,
+        0,
+        56,
+        63,
+        75,
+        87,
+        74
+      ],
+      "avg": 58.7,
+      "min": 0,
+      "max": 87,
+      "count": 17,
+      "score": 88.9,
+      "why": "Your devices are achieving 58.7% of their maximum data rate capability, indicating efficient radio utilization. The RF environment supports high-order modulation, and AP configuration (channel width, spatial streams) is well-matched to device capabilities.",
+      "is_good": true
+    }
+  ],
+  "conn_success": {
+    "rate": 28.6,
+    "score": 31.7,
+    "weight": 12
+  },
+  "problem_diversity": {
+    "count": 7,
+    "score": 0,
+    "weight": 9
+  },
+  "problems": [
+    [
+      "Timeout trying to connect to SSID",
+      8
+    ],
+    [
+      "Wi-Fi test port disabled",
+      8
+    ],
+    [
+      "Wi-Fi network connection lost",
+      3
+    ],
+    [
+      "Invalid Wi-Fi connection settings",
+      2
+    ],
+    [
+      "No DHCP server response",
+      2
+    ],
+    [
+      "Failure",
+      1
+    ],
+    [
+      "Unable to connect to SSID/BSSID",
+      1
+    ]
+  ],
+  "devices": [
+    {
+      "name": "Hey #2!",
+      "tests": [
+        {
+          "id": "69cb060437c6100946990ba7",
+          "date": "2026-03-30T23:23:40.199Z",
+          "color": "red",
+          "profile": "78RPM",
+          "rssi": "--",
+          "snr": "--",
+          "noise": "--",
+          "retry": "--",
+          "phyRate": "--",
+          "chanUtil": null,
+          "problems": [
+            "Timeout trying to connect to SSID (19)"
+          ]
+        },
+        {
+          "id": "69cb052b5e3376b9a08d29ac",
+          "date": "2026-03-30T23:20:03.809Z",
+          "color": "red",
+          "profile": "Monkey-Butt",
+          "rssi": "--",
+          "snr": "--",
+          "noise": "--",
+          "retry": "--",
+          "phyRate": "--",
+          "chanUtil": null,
+          "problems": [
+            "Timeout trying to connect to SSID (19)"
+          ]
+        },
+        {
+          "id": "69bab48f9a60b9af1a6b6836",
+          "date": "2026-03-18T14:19:58.544Z",
+          "color": "green",
+          "profile": "Monkey-Butt",
+          "rssi": -33,
+          "snr": 57,
+          "noise": -90,
+          "retry": 0,
+          "phyRate": 1441.2,
+          "chanUtil": 7,
+          "problems": []
+        },
+        {
+          "id": "69bab3cf9a60b9af1a6b4942",
+          "date": "2026-03-18T14:16:47.142Z",
+          "color": "green",
+          "profile": "Monkey-Butt_6GHz",
+          "rssi": -44,
+          "snr": 46,
+          "noise": -90,
+          "retry": 0,
+          "phyRate": 1729.4,
+          "chanUtil": 2,
+          "problems": []
+        }
+      ],
+      "total": 4,
+      "pass": 2,
+      "fail": 2,
+      "score": 70,
+      "problems": {
+        "Timeout trying to connect to SSID": 2
+      }
+    },
+    {
+      "name": "Rocky's CyberScope - 570064",
+      "tests": [
+        {
+          "id": "69b9a06feaefa1cef947cd19",
+          "date": "2026-03-17T18:41:50.978Z",
+          "color": "green",
+          "profile": "ImBatLAN",
+          "rssi": -42,
+          "snr": 48,
+          "noise": -90,
+          "retry": 1,
+          "phyRate": 516.2,
+          "chanUtil": 5,
+          "problems": []
+        },
+        {
+          "id": "69b86826d454c1ef7113c96b",
+          "date": "2026-03-16T20:29:25.958Z",
+          "color": "green",
+          "profile": "ImBatLAN",
+          "rssi": -50,
+          "snr": 40,
+          "noise": -90,
+          "retry": 1,
+          "phyRate": 516.2,
+          "chanUtil": 6,
+          "problems": []
+        },
+        {
+          "id": "69b86821d454c1ef7113c88a",
+          "date": "2026-03-16T20:28:32.578Z",
+          "color": "red",
+          "profile": "EZ Wi-Fi Profile",
+          "rssi": "--",
+          "snr": "--",
+          "noise": "--",
+          "retry": "--",
+          "phyRate": "--",
+          "chanUtil": null,
+          "problems": [
+            "Invalid Wi-Fi connection settings (16)"
+          ]
+        }
+      ],
+      "total": 3,
+      "pass": 2,
+      "fail": 1,
+      "score": 80,
+      "problems": {
+        "Invalid Wi-Fi connection settings": 1
+      }
+    },
+    {
+      "name": "Rocky's CyberScope Air - 58017C",
+      "tests": [
+        {
+          "id": "69b73f986c01b69e322256b6",
+          "date": "2026-03-15T23:24:07.923Z",
+          "color": "green",
+          "profile": "78RPM",
+          "rssi": -53,
+          "snr": 37,
+          "noise": -90,
+          "retry": 6,
+          "phyRate": 288.2,
+          "chanUtil": 2,
+          "problems": []
+        }
+      ],
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "score": 100,
+      "problems": {}
+    },
+    {
+      "name": "Rocky's CyberScope - 570360",
+      "tests": [
+        {
+          "id": "699b8a6a7087b908a4c5101e",
+          "date": "2026-02-22T22:59:52.037Z",
+          "color": "red",
+          "profile": "EZ Wi-Fi Profile",
+          "rssi": "--",
+          "snr": "--",
+          "noise": "--",
+          "retry": "--",
+          "phyRate": "--",
+          "chanUtil": null,
+          "problems": [
+            "Wi-Fi test port disabled (26)"
+          ]
+        },
+        {
+          "id": "699b7c5e7087b908a4c328aa",
+          "date": "2026-02-22T21:59:56.386Z",
+          "color": "red",
+          "profile": "EZ Wi-Fi Profile",
+          "rssi": "--",
+          "snr": "--",
+          "noise": "--",
+          "retry": "--",
+          "phyRate": "--",
+          "chanUtil": null,
+          "problems": [
+            "Wi-Fi test port disabled (26)"
+          ]
+        },
+        {
+          "id": "699b75f67087b908a4c24cbf",
+          "date": "2026-02-22T21:32:38.002Z",
+          "color": "red",
+          "profile": "EZ Wi-Fi Profile",
+          "rssi": "--",
+          "snr": "--",
+          "noise": "--",
+          "retry": "--",
+          "phyRate": "--",
+          "chanUtil": null,
+          "problems": [
+            "Wi-Fi test port disabled (26)"
+          ]
+        },
+        {
+          "id": "699b75f07336253019f70eff",
+          "date": "2026-02-22T21:32:32.001Z",
+          "color": "red",
+          "profile": "EZ Wi-Fi Profile",
+          "rssi": "--",
+          "snr": "--",
+          "noise": "--",
+          "retry": "--",
+          "phyRate": "--",
+          "chanUtil": null,
+          "problems": [
+            "Wi-Fi test port disabled (26)"
+          ]
+        }
+      ],
+      "total": 4,
+      "pass": 0,
+      "fail": 4,
+      "score": 0,
+      "problems": {
+        "Wi-Fi test port disabled": 4
+      }
+    },
+    {
+      "name": "Rocky's CyberScope Air - 5801C8",
+      "tests": [
+        {
+          "id": "699b85547336253019f921a8",
+          "date": "2026-02-22T22:38:11.994Z",
+          "color": "red",
+          "profile": "Rocky 1:Connect to localAdm:e63883-e65cb5",
+          "rssi": -60,
+          "snr": 30,
+          "noise": -90,
+          "retry": 3,
+          "phyRate": 1297.1,
+          "chanUtil": 2,
+          "problems": []
+        },
+        {
+          "id": "699b84d47087b908a4c44eb1",
+          "date": "2026-02-22T22:36:02.444Z",
+          "color": "red",
+          "profile": "Rocky 1:Connect to Order66",
+          "rssi": -57,
+          "snr": 33,
+          "noise": -90,
+          "retry": 0,
+          "phyRate": 1441.2,
+          "chanUtil": 2,
+          "problems": []
+        },
+        {
+          "id": "699b83e27336253019f8ef82",
+          "date": "2026-02-22T22:31:59.902Z",
+          "color": "red",
+          "profile": "Rocky 1:Order66",
+          "rssi": -62,
+          "snr": 28,
+          "noise": -90,
+          "retry": 5,
+          "phyRate": 1441.2,
+          "chanUtil": 2,
+          "problems": []
+        },
+        {
+          "id": "699b83e17336253019f8ef64",
+          "date": "2026-02-22T22:30:28.663Z",
+          "color": "red",
+          "profile": "Rocky 1:Order66",
+          "rssi": "--",
+          "snr": "--",
+          "noise": "--",
+          "retry": "--",
+          "phyRate": "--",
+          "chanUtil": null,
+          "problems": [
+            "Wi-Fi test port disabled (26)"
+          ]
+        },
+        {
+          "id": "699b83e17336253019f8ef4a",
+          "date": "2026-02-22T22:30:14.235Z",
+          "color": "red",
+          "profile": "Rocky 1:Order66",
+          "rssi": "--",
+          "snr": "--",
+          "noise": "--",
+          "retry": "--",
+          "phyRate": "--",
+          "chanUtil": null,
+          "problems": [
+            "Wi-Fi test port disabled (26)"
+          ]
+        },
+        {
+          "id": "699b83e07336253019f8ef34",
+          "date": "2026-02-22T22:29:53.312Z",
+          "color": "red",
+          "profile": "Rocky 1:Order66",
+          "rssi": "--",
+          "snr": "--",
+          "noise": "--",
+          "retry": "--",
+          "phyRate": "--",
+          "chanUtil": null,
+          "problems": [
+            "Wi-Fi test port disabled (26)"
+          ]
+        },
+        {
+          "id": "699b83dd7087b908a4c42d94",
+          "date": "2026-02-22T22:29:28.479Z",
+          "color": "red",
+          "profile": "Rocky 1:RockoPhone",
+          "rssi": "--",
+          "snr": "--",
+          "noise": "--",
+          "retry": "--",
+          "phyRate": "--",
+          "chanUtil": null,
+          "problems": [
+            "Wi-Fi test port disabled (26)"
+          ]
+        },
+        {
+          "id": "699b80f77087b908a4c3c83d",
+          "date": "2026-02-22T22:19:34.448Z",
+          "color": "green",
+          "profile": "Rocky 1:Order66",
+          "rssi": -56,
+          "snr": 34,
+          "noise": -90,
+          "retry": 1,
+          "phyRate": 1441.2,
+          "chanUtil": 2,
+          "problems": []
+        },
+        {
+          "id": "699b801f7087b908a4c3aabe",
+          "date": "2026-02-22T22:15:57.452Z",
+          "color": "red",
+          "profile": "Rocky 1:Order66",
+          "rssi": -74,
+          "snr": 16,
+          "noise": -90,
+          "retry": 2,
+          "phyRate": "--",
+          "chanUtil": 3,
+          "problems": [
+            "Wi-Fi network connection lost (14)",
+            "Failure"
+          ]
+        },
+        {
+          "id": "699b7fa07087b908a4c3994a",
+          "date": "2026-02-22T22:13:51.801Z",
+          "color": "red",
+          "profile": "Rocky 1:Wi-Fi Profile",
+          "rssi": "--",
+          "snr": "--",
+          "noise": "--",
+          "retry": "--",
+          "phyRate": "--",
+          "chanUtil": null,
+          "problems": [
+            "Invalid Wi-Fi connection settings (16)"
+          ]
+        },
+        {
+          "id": "699b69da7336253019f57618",
+          "date": "2026-02-22T20:40:58.147Z",
+          "color": "red",
+          "profile": "Rocky 1:RockoPhone",
+          "rssi": "--",
+          "snr": "--",
+          "noise": "--",
+          "retry": "--",
+          "phyRate": "--",
+          "chanUtil": null,
+          "problems": [
+            "Timeout trying to connect to SSID (19)"
+          ]
+        },
+        {
+          "id": "699360a984d863628e0574e0",
+          "date": "2026-02-16T18:23:34.636Z",
+          "color": "red",
+          "profile": "RockoPhone",
+          "rssi": "--",
+          "snr": "--",
+          "noise": "--",
+          "retry": "--",
+          "phyRate": "--",
+          "chanUtil": null,
+          "problems": [
+            "Timeout trying to connect to SSID (19)"
+          ]
+        },
+        {
+          "id": "6993606f84d863628e056c18",
+          "date": "2026-02-16T18:22:37.391Z",
+          "color": "red",
+          "profile": "RockoPhone",
+          "rssi": "--",
+          "snr": "--",
+          "noise": "--",
+          "retry": "--",
+          "phyRate": "--",
+          "chanUtil": null,
+          "problems": [
+            "Timeout trying to connect to SSID (19)"
+          ]
+        },
+        {
+          "id": "69935fa684d863628e054cfb",
+          "date": "2026-02-16T18:19:16.094Z",
+          "color": "red",
+          "profile": "RockoPhone",
+          "rssi": "--",
+          "snr": "--",
+          "noise": "--",
+          "retry": "--",
+          "phyRate": "--",
+          "chanUtil": null,
+          "problems": [
+            "Timeout trying to connect to SSID (19)"
+          ]
+        },
+        {
+          "id": "69935dd684d863628e0507e0",
+          "date": "2026-02-16T18:11:32.168Z",
+          "color": "red",
+          "profile": "RockoPhone",
+          "rssi": "--",
+          "snr": "--",
+          "noise": "--",
+          "retry": "--",
+          "phyRate": "--",
+          "chanUtil": null,
+          "problems": [
+            "Timeout trying to connect to SSID (19)"
+          ]
+        },
+        {
+          "id": "699335bea2a972e3275d34e5",
+          "date": "2026-02-16T06:26:18.227Z",
+          "color": "red",
+          "profile": "RockoPhone",
+          "rssi": -31,
+          "snr": 59,
+          "noise": -90,
+          "retry": 0,
+          "phyRate": "--",
+          "chanUtil": 1,
+          "problems": [
+            "Wi-Fi network connection lost (14)",
+            "No DHCP server response (12)"
+          ]
+        },
+        {
+          "id": "6992b858131f376f62c6e246",
+          "date": "2026-02-16T06:25:26.703Z",
+          "color": "red",
+          "profile": "RockoPhone",
+          "rssi": -53,
+          "snr": 0,
+          "noise": -53,
+          "retry": 0,
+          "phyRate": "--",
+          "chanUtil": "--",
+          "problems": [
+            "Unable to connect to SSID/BSSID (15)"
+          ]
+        },
+        {
+          "id": "6992b813a2a972e3274a9aae",
+          "date": "2026-02-16T06:23:50.511Z",
+          "color": "red",
+          "profile": "RockoPhone",
+          "rssi": "--",
+          "snr": "--",
+          "noise": "--",
+          "retry": "--",
+          "phyRate": "--",
+          "chanUtil": null,
+          "problems": [
+            "Timeout trying to connect to SSID (19)"
+          ]
+        },
+        {
+          "id": "6992b80ea2a972e3274a99c2",
+          "date": "2026-02-16T06:23:01.702Z",
+          "color": "red",
+          "profile": "RockoPhone",
+          "rssi": -50,
+          "snr": 40,
+          "noise": -90,
+          "retry": 0,
+          "phyRate": "--",
+          "chanUtil": 1,
+          "problems": [
+            "Wi-Fi network connection lost (14)",
+            "No DHCP server response (12)"
+          ]
+        },
+        {
+          "id": "6992a158a2a972e327475c4a",
+          "date": "2026-02-16T04:47:12.973Z",
+          "color": "green",
+          "profile": "RockoPhone",
+          "rssi": -53,
+          "snr": 37,
+          "noise": -90,
+          "retry": 6,
+          "phyRate": 864.7,
+          "chanUtil": 2,
+          "problems": []
+        },
+        {
+          "id": "6990dd353fccbd483534d39b",
+          "date": "2026-02-14T20:38:13.156Z",
+          "color": "green",
+          "profile": "Order66",
+          "rssi": -26,
+          "snr": 64,
+          "noise": -90,
+          "retry": 0,
+          "phyRate": 573.5,
+          "chanUtil": 3,
+          "problems": []
+        },
+        {
+          "id": "69824a75c6b71c1dcd05caa0",
+          "date": "2026-02-03T19:20:19.895Z",
+          "color": "green",
+          "profile": "Order66",
+          "rssi": -29,
+          "snr": 61,
+          "noise": -90,
+          "retry": 0,
+          "phyRate": 573.5,
+          "chanUtil": 7,
+          "problems": []
+        },
+        {
+          "id": "69824270d69f38046c3e03ae",
+          "date": "2026-02-03T18:46:07.309Z",
+          "color": "green",
+          "profile": "Order66",
+          "rssi": -37,
+          "snr": 53,
+          "noise": -90,
+          "retry": 0,
+          "phyRate": 573.5,
+          "chanUtil": 5,
+          "problems": []
+        }
+      ],
+      "total": 23,
+      "pass": 5,
+      "fail": 18,
+      "score": 53,
+      "problems": {
+        "Wi-Fi test port disabled": 4,
+        "Wi-Fi network connection lost": 3,
+        "Failure": 1,
+        "Invalid Wi-Fi connection settings": 1,
+        "Timeout trying to connect to SSID": 6,
+        "No DHCP server response": 2,
+        "Unable to connect to SSID/BSSID": 1
+      }
+    }
+  ],
+  "scoring_methodology": {
+    "description": "Weighted composite of 10 metrics derived from industry benchmarks",
+    "total_weight": 100,
+    "floor_rule": "If any single metric scores below 30, the composite is capped at 65",
+    "sources": [
+      {
+        "name": "Cisco Site Survey Guidelines",
+        "url": "https://www.cisco.com/c/en/us/support/docs/wireless/5500-series-wireless-controllers/116057-site-survey-guidelines-wlan-00.html"
+      },
+      {
+        "name": "Cisco Meraki SNR & Signal Strength",
+        "url": "https://documentation.meraki.com/Wireless/Design_and_Configure/Architecture_and_Best_Practices/Signal-to-Noise_Ratio_(SNR)_and_Wireless_Signal_Strength"
+      },
+      {
+        "name": "Cisco VoWLAN Design Guide",
+        "url": "https://www.cisco.com/en/US/docs/solutions/Enterprise/Mobility/emob30dg/Voice.html"
+      },
+      {
+        "name": "NetAlly: AirMapper Wi-Fi Survey Tool",
+        "url": "https://www.netally.com/products/airmapper/"
+      },
+      {
+        "name": "Mist/Juniper SNR & CCI Design",
+        "url": "https://design.mist.com/snr-co-channel-contention/"
+      },
+      {
+        "name": "7SIGNAL MCS Rates & Network Health",
+        "url": "https://7signal.com/blog/mcs-rates-and-network-health/"
+      },
+      {
+        "name": "NetAlly AirCheck G3 Air Quality Profiles",
+        "url": "https://www.netally.com/user-guides/aircheckg3/Content/B_Testing-Applications/AutoTest/Air-Quality-AutoTest-Profiles.htm"
+      },
+      {
+        "name": "Arista Retry Rate Thresholds",
+        "url": "https://arista.my.site.com/AristaCommunity/s/question/0D5Uw00000TkpGaKAJ/"
+      },
+      {
+        "name": "CWNA Study Guide (Sybex)",
+        "url": "https://www.wiley.com/en-us/CWNA+Certified+Wireless+Network+Administrator+Study+Guide"
+      },
+      {
+        "name": "NHS England Wi-Fi Metrics",
+        "url": "https://digital.nhs.uk/services/networks-and-connectivity-transformation-frontline-productivity/connectivity-hub/advice-and-guidance/wi-fi-metrics-and-measures/assessing-wi-fi-performance-metrics/"
+      }
+    ]
+  }
+}

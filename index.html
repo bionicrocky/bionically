@@ -215,11 +215,11 @@ tr:hover td { background: var(--surface2); }
 const BENCHMARKS = [
   {key:"linkSignalLevelMean",name:"Signal Strength (RSSI)",unit:"dBm",good:-65,accept:-72,direction:"higher",weight:15,
    description:"Received signal power at the client device. The primary indicator of connection quality.",
-   source:"Cisco Site Survey Guidelines, Ekahau Design Guide",source_url:"https://www.cisco.com/c/en/us/support/docs/wireless/5500-series-wireless-controllers/116057-site-survey-guidelines-wlan-00.html",
-   detail:"RSSI measures the power level of the Wi-Fi signal received by the client device. Industry consensus (Cisco, Ekahau, CWNA) targets -65 dBm or better for voice/video applications and -72 dBm as the minimum for reliable data connectivity. Below -75 dBm, most vendors flag connections as marginal with high error rates.",
+   source:"Cisco Site Survey Guidelines, NetAlly Wi-Fi Design Guide",source_url:"https://www.cisco.com/c/en/us/support/docs/wireless/5500-series-wireless-controllers/116057-site-survey-guidelines-wlan-00.html",
+   detail:"RSSI measures the power level of the Wi-Fi signal received by the client device. Industry consensus (Cisco, CWNA, NetAlly) targets -65 dBm or better for voice/video applications and -72 dBm as the minimum for reliable data connectivity. Below -75 dBm, most vendors flag connections as marginal with high error rates.",
    why_good:"Your average RSSI of {avg} dBm is well above the -65 dBm threshold for voice/video. Clients are receiving strong signal from nearby APs, enabling high MCS rates and reliable connections.",
    why_bad:"Your average RSSI of {avg} dBm falls below the -65 dBm threshold. Clients are too far from APs or obstructions are attenuating signal. Consider adding APs or adjusting power levels.",
-   learn_more:[{title:"Cisco: Site Survey Guidelines for WLANs",url:"https://www.cisco.com/c/en/us/support/docs/wireless/5500-series-wireless-controllers/116057-site-survey-guidelines-wlan-00.html"},{title:"MetaGeek: Wi-Fi Signal Strength Basics",url:"https://www.metageek.com/training/resources/wifi-signal-strength-basics/"},{title:"Ekahau: Primary & Secondary Coverage Design",url:"https://divdyn.com/primary-secondary-coverage/"}]},
+   learn_more:[{title:"Cisco: Site Survey Guidelines for WLANs",url:"https://www.cisco.com/c/en/us/support/docs/wireless/5500-series-wireless-controllers/116057-site-survey-guidelines-wlan-00.html"},{title:"NetAlly: Wi-Fi Signal Strength & Coverage",url:"https://www.netally.com/tech-tips/wi-fi-signal-strength/"},{title:"NetAlly: AirMapper Wi-Fi Survey Tool",url:"https://www.netally.com/products/airmapper/"}]},
   {key:"linkSNRMean",name:"Signal-to-Noise Ratio (SNR)",unit:"dB",good:25,accept:20,direction:"higher",weight:15,
    description:"Gap between signal and noise floor. More reliable than RSSI alone.",
    source:"Cisco Meraki, NetAlly SNR Guide, CWNA Study Guide",source_url:"https://documentation.meraki.com/Wireless/Design_and_Configure/Architecture_and_Best_Practices/Signal-to-Noise_Ratio_(SNR)_and_Wireless_Signal_Strength",
@@ -275,7 +275,7 @@ const FAILURE_KEYS = ['linkFailureReasons','apFailureReasons','ipConfigFailureRe
 const SOURCES = [
   {name:"Cisco Site Survey Guidelines",url:"https://www.cisco.com/c/en/us/support/docs/wireless/5500-series-wireless-controllers/116057-site-survey-guidelines-wlan-00.html"},
   {name:"Cisco Meraki SNR & Signal Strength",url:"https://documentation.meraki.com/Wireless/Design_and_Configure/Architecture_and_Best_Practices/Signal-to-Noise_Ratio_(SNR)_and_Wireless_Signal_Strength"},
-  {name:"Ekahau / Divergent Dynamics Coverage Design",url:"https://divdyn.com/primary-secondary-coverage/"},
+  {name:"NetAlly: AirMapper Wi-Fi Survey Tool",url:"https://www.netally.com/products/airmapper/"},
   {name:"Mist/Juniper SNR & CCI Design",url:"https://design.mist.com/snr-co-channel-contention/"},
   {name:"7SIGNAL MCS Rates & Network Health",url:"https://7signal.com/blog/mcs-rates-and-network-health/"},
   {name:"NetAlly AirCheck G3 Air Quality Profiles",url:"https://www.netally.com/user-guides/aircheckg3/Content/B_Testing-Applications/AutoTest/Air-Quality-AutoTest-Profiles.htm"},
