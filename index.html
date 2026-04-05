@@ -130,6 +130,37 @@ tr:hover td { background: var(--surface2); }
 .popup-stat .lbl { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; }
 .popup-stat .val { font-size: 18px; font-weight: 700; margin-top: 2px; }
 canvas { cursor: pointer; }
+/* Chat drawer */
+.chat-toggle { background: var(--accent); border: none; color: #fff; padding: 5px 14px;
+  border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; margin-left: 8px; transition: all .15s; }
+.chat-toggle:hover { background: var(--accent2); }
+.chat-toggle.active { background: var(--green); }
+.chat-drawer { position: fixed; right: 0; top: 0; bottom: 0; width: 420px; max-width: 100vw;
+  background: var(--surface); border-left: 1px solid var(--border); z-index: 150;
+  display: flex; flex-direction: column; transform: translateX(100%); transition: transform .25s ease; }
+.chat-drawer.open { transform: translateX(0); }
+.chat-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+.chat-header h3 { font-size: 15px; flex: 1; }
+.chat-header .close-chat { background: none; border: none; color: var(--text2); font-size: 20px; cursor: pointer; padding: 2px 6px; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.chat-msg { padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.6; max-width: 90%; word-wrap: break-word; }
+.chat-msg-user { background: var(--accent); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+.chat-msg-ai { background: var(--surface2); color: var(--text); align-self: flex-start; border-bottom-left-radius: 4px; }
+.chat-msg-system { background: transparent; color: var(--text2); font-size: 12px; text-align: center; align-self: center; }
+.chat-msg-ai pre { background: var(--bg); padding: 8px; border-radius: 6px; overflow-x: auto; margin: 6px 0; font-size: 12px; }
+.chat-msg-ai code { font-size: 12px; }
+.chat-input-row { padding: 12px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+.chat-input-row input { flex: 1; padding: 10px 14px; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 13px; outline: none; }
+.chat-input-row input:focus { border-color: var(--accent); }
+.chat-input-row button { background: var(--accent); border: none; color: #fff; padding: 8px 16px;
+  border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; }
+.chat-input-row button:disabled { opacity: .4; cursor: not-allowed; }
+.chat-key-row { padding: 8px 12px; border-top: 1px solid var(--border); }
+.chat-key-row input { width: 100%; padding: 6px 10px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text2); font-size: 11px; font-family: monospace; outline: none; }
+.typing-dots::after { content: '...'; animation: dots 1.2s infinite; }
+@keyframes dots { 0%{content:'.'} 33%{content:'..'} 66%{content:'...'} }
 </style>
 </head>
 <body>
@@ -176,6 +207,7 @@ canvas { cursor: pointer; }
     <button data-page="problems" onclick="showPage('problems')">Problems</button>
   </div>
   <div class="subtitle" id="org-name">Wi-Fi Health Report</div>
+  <button class="chat-toggle" onclick="toggleChat()" id="chat-toggle-btn" title="Ask AI about your data">AI Chat</button>
   <button class="logout-btn" onclick="doLogout()">Sign Out</button>
 </div>
 
@@ -223,6 +255,25 @@ canvas { cursor: pointer; }
       <table id="problem-table"><thead><tr><th>Problem</th><th>Occurrences</th><th>Affected Devices</th></tr></thead><tbody></tbody></table>
     </div>
     <div id="problem-detail" style="display:none"></div>
+  </div>
+</div>
+
+<!-- CHAT DRAWER -->
+<div class="chat-drawer" id="chat-drawer">
+  <div class="chat-header">
+    <h3>BionicAlly AI</h3>
+    <span style="font-size:11px;color:var(--text2)">Analyze your Wi-Fi data</span>
+    <button class="close-chat" onclick="toggleChat()">×</button>
+  </div>
+  <div class="chat-messages" id="chat-messages">
+    <div class="chat-msg chat-msg-system">Enter your Anthropic API key below, then ask me anything about your Wi-Fi data.</div>
+  </div>
+  <div class="chat-input-row">
+    <input type="text" id="chat-input" placeholder="Ask about your Wi-Fi data..." onkeydown="if(event.key==='Enter')sendChat()" disabled>
+    <button onclick="sendChat()" id="chat-send-btn" disabled>Send</button>
+  </div>
+  <div class="chat-key-row">
+    <input type="password" id="chat-api-key" placeholder="sk-ant-... (Anthropic API key — stored in memory only)" onchange="onApiKeyChange()">
   </div>
 </div>
 </div>
@@ -845,12 +896,18 @@ function getProblemKB(name) {
 
 function renderProblems() {
   const d=DATA;
-  new Chart(document.getElementById('chart-problems2'),{type:'bar',data:{labels:d.problems.map(p=>p[0].substring(0,35)),datasets:[{data:d.problems.map(p=>p[1]),backgroundColor:'#ef4444aa',borderRadius:4}]},
-    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:'#2e334522'},ticks:{color:'#9ba1b7'}},y:{grid:{display:false},ticks:{color:'#9ba1b7',font:{size:11}}}}}});
+  // Problems by Type — click opens problem detail
+  const probsList = d.problems;
+  new Chart(document.getElementById('chart-problems2'),{type:'bar',data:{labels:probsList.map(p=>p[0].substring(0,35)),datasets:[{data:probsList.map(p=>p[1]),backgroundColor:'#ef4444aa',borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:'#2e334522'},ticks:{color:'#9ba1b7'}},y:{grid:{display:false},ticks:{color:'#9ba1b7',font:{size:11}}}},
+    onClick:(evt,el)=>{if(el.length)showProblemDetail(probsList[el[0].index][0])}}});
+  // Problems by Device — click shows that device's failed tests
   const dp={}; d.devices.forEach(dev=>{const t=Object.values(dev.problems||{}).reduce((a,b)=>a+b,0);if(t>0)dp[dev.name.replace("Rocky's ",'')]=t});
   const sorted=Object.entries(dp).sort((a,b)=>b[1]-a[1]);
+  const devNameMap={}; d.devices.forEach(dev=>devNameMap[dev.name.replace("Rocky's ",'')]=dev);
   new Chart(document.getElementById('chart-problems-device'),{type:'doughnut',data:{labels:sorted.map(s=>s[0]),datasets:[{data:sorted.map(s=>s[1]),backgroundColor:['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#8b5cf6','#ec4899']}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#9ba1b7',font:{size:11},padding:12,usePointStyle:true}}}}});
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#9ba1b7',font:{size:11},padding:12,usePointStyle:true}}},
+    onClick:(evt,el)=>{if(el.length){const devName=sorted[el[0].index][0];const dev=devNameMap[devName];if(dev){const failed=dev.tests.filter(t=>t.problems.length>0).map(t=>({...t,device:dev.name}));showTestListPopup(devName+' — Failed Tests',failed)}}}}});
 
   // Build incident index: for each problem, list all test incidents
   const incidents = {};
@@ -997,6 +1054,135 @@ function showTestListPopup(title, tests) {
 }
 
 function closePopup() { document.querySelectorAll('.popup-overlay').forEach(o=>o.remove()); }
+
+// ============================================================================
+// AI CHAT — Claude API powered data analysis
+// ============================================================================
+let _chatApiKey = null;
+let _chatHistory = [];
+
+function toggleChat() {
+  const drawer = document.getElementById('chat-drawer');
+  const btn = document.getElementById('chat-toggle-btn');
+  drawer.classList.toggle('open');
+  btn.classList.toggle('active');
+  if (drawer.classList.contains('open')) document.getElementById('chat-input').focus();
+}
+
+function onApiKeyChange() {
+  const key = document.getElementById('chat-api-key').value.trim();
+  _chatApiKey = key || null;
+  document.getElementById('chat-input').disabled = !_chatApiKey;
+  document.getElementById('chat-send-btn').disabled = !_chatApiKey;
+  if (_chatApiKey) {
+    addChatMsg('system', 'API key set. Ask me anything about your Wi-Fi health data!');
+    document.getElementById('chat-input').focus();
+  }
+}
+
+function addChatMsg(role, text) {
+  const msgs = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg chat-msg-' + (role === 'user' ? 'user' : role === 'system' ? 'system' : 'ai');
+  // Simple markdown-ish rendering for AI responses
+  if (role === 'ai') {
+    let html = text
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+      .replace(/\n/g, '<br>');
+    div.innerHTML = html;
+  } else {
+    div.textContent = text;
+  }
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+function buildDataSummary() {
+  if (!DATA) return 'No data loaded.';
+  const d = DATA;
+  const lines = [
+    `Wi-Fi Health Score: ${d.health_score}/100`,
+    `Total Tests: ${d.total_tests}, Passed: ${d.successful_tests}, Failed: ${d.failed_tests}`,
+    `Devices: ${d.device_count}, Unique Problem Types: ${d.problem_count}`,
+    '', '=== METRICS ==='
+  ];
+  d.metrics.forEach(m => {
+    lines.push(`${m.name}: avg=${m.avg} ${m.unit}, score=${m.score}/100, weight=${m.weight}%, good=${m.good}, acceptable=${m.accept}, direction=${m.direction}`);
+    if (m.values.length) lines.push(`  values: [${m.values.join(', ')}]`);
+  });
+  lines.push(`Connection Success: ${d.conn_success.rate}%, score=${d.conn_success.score}`);
+  lines.push(`Problem Diversity: ${d.problem_diversity.count} types, score=${d.problem_diversity.score}`);
+  lines.push('', '=== PROBLEMS ===');
+  d.problems.forEach(([name, count]) => lines.push(`${name}: ${count} occurrences`));
+  lines.push('', '=== DEVICES ===');
+  d.devices.forEach(dev => {
+    lines.push(`\n${dev.name} — Score: ${dev.score}, Tests: ${dev.total} (${dev.pass} pass, ${dev.fail} fail)`);
+    if (Object.keys(dev.problems).length) lines.push(`  Problems: ${JSON.stringify(dev.problems)}`);
+    dev.tests.forEach(t => {
+      const metrics = [t.rssi != null ? `RSSI:${t.rssi}dBm` : null, t.snr != null ? `SNR:${t.snr}dB` : null,
+        t.retry != null ? `Retry:${t.retry}%` : null, t.phyRate != null ? `PHY:${t.phyRate}Mbps` : null,
+        t.chanUtil != null ? `ChanUtil:${t.chanUtil}%` : null].filter(Boolean).join(', ');
+      const probs = t.problems.length ? ` PROBLEMS: ${t.problems.join('; ')}` : '';
+      lines.push(`  ${t.date.substring(0,16)} ${t.color==='green'?'PASS':'FAIL'} [${t.profile}] ${metrics}${probs}`);
+    });
+  });
+  return lines.join('\n');
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg || !_chatApiKey) return;
+  input.value = '';
+
+  addChatMsg('user', msg);
+  _chatHistory.push({ role: 'user', content: msg });
+
+  const typing = addChatMsg('ai', '');
+  typing.innerHTML = '<span class="typing-dots">Thinking</span>';
+
+  const systemPrompt = `You are BionicAlly AI, a Wi-Fi network health analyst. You have access to the user's Wi-Fi test data from NetAlly Link-Live devices. Answer questions about their data with specific numbers, analysis, and actionable recommendations.
+
+Be concise but thorough. Reference specific devices, dates, and metrics. When recommending fixes, reference industry standards (Cisco, CWNA, IEEE 802.11). Use markdown formatting.
+
+Here is the complete dataset:
+
+${buildDataSummary()}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': _chatApiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: _chatHistory.slice(-10) // keep last 10 for context window
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `API error ${res.status}`);
+    }
+    const data = await res.json();
+    const reply = data.content?.[0]?.text || 'No response.';
+    typing.remove();
+    addChatMsg('ai', reply);
+    _chatHistory.push({ role: 'assistant', content: reply });
+  } catch (e) {
+    typing.remove();
+    addChatMsg('system', 'Error: ' + e.message);
+  }
+}
 </script>
 </body>
 </html>
