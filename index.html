@@ -116,6 +116,20 @@ tr:hover td { background: var(--surface2); }
 .source-list li { padding: 8px 0; border-bottom: 1px solid var(--border); }
 .source-list li:last-child { border: none; }
 .tag { display: inline-block; padding: 2px 8px; background: var(--surface2); border-radius: 4px; font-size: 11px; color: var(--text2); margin-right: 4px; }
+/* Test detail popup */
+.popup-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.6);
+  display: flex; align-items: center; justify-content: center; z-index: 200; backdrop-filter: blur(4px); }
+.popup { background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  padding: 28px; width: 560px; max-width: 92vw; max-height: 85vh; overflow-y: auto; position: relative; }
+.popup-close { position: absolute; top: 12px; right: 16px; background: none; border: none;
+  color: var(--text2); font-size: 20px; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+.popup-close:hover { background: var(--surface2); color: var(--text); }
+.popup h3 { font-size: 16px; margin-bottom: 12px; padding-right: 30px; }
+.popup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.popup-stat { padding: 10px 14px; background: var(--surface2); border-radius: 8px; }
+.popup-stat .lbl { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; }
+.popup-stat .val { font-size: 18px; font-weight: 700; margin-top: 2px; }
+canvas { cursor: pointer; }
 </style>
 </head>
 <body>
@@ -599,12 +613,18 @@ function showMetricDetail(idx) {
       <b style="display:block;margin-bottom:8px;font-size:13px;color:var(--text2)">Learn More</b>
       ${m.learn_more.map(l=>`<div style="margin-bottom:6px"><a href="${l.url}" target="_blank" style="font-size:13px">${l.title} →</a></div>`).join('')}</div>`
       :(m.source?`<div><span class="tag">Source</span> <a href="${m.source_url}" target="_blank">${m.source}</a></div>`:'')}
-    ${(m.values&&m.values.length>1)?`<div style="margin-top:16px"><canvas id="chart-metric-detail" height="80"></canvas></div>`:''}</div>`;
+    ${(m.values&&m.values.length>1)?`<div style="margin-top:16px"><p style="font-size:12px;color:var(--text2);margin-bottom:4px">Click any bar for test details</p><canvas id="chart-metric-detail" height="80"></canvas></div>`:''}</div>`;
   if (m.values&&m.values.length>1) {
-    new Chart(document.getElementById('chart-metric-detail'),{type:'bar',
+    // Build test index for this metric
+    const metricTests = [];
+    DATA.devices.forEach(dev=>dev.tests.forEach(t=>{
+      if (typeof t[m.key] === 'number') metricTests.push(t);
+    }));
+    const ch = new Chart(document.getElementById('chart-metric-detail'),{type:'bar',
       data:{labels:m.values.map((_,i)=>'Test '+(i+1)),datasets:[{data:m.values,backgroundColor:m.values.map(v=>{
         return m.direction==='higher'?(v>=m.good?'#22c55e':v>=m.accept?'#eab308':'#ef4444'):(v<=m.good?'#22c55e':v<=m.accept?'#eab308':'#ef4444');
-      }),borderRadius:4}]},options:{plugins:{legend:{display:false}},scales:{y:{grid:{color:'#2e3345'},ticks:{color:'#9ba1b7'}},x:{grid:{display:false},ticks:{color:'#9ba1b7'}}}}});
+      }),borderRadius:4}]},options:{plugins:{legend:{display:false}},scales:{y:{grid:{color:'#2e3345'},ticks:{color:'#9ba1b7'}},x:{grid:{display:false},ticks:{color:'#9ba1b7'}}},
+      onClick:(evt,elements)=>{if(elements.length&&metricTests[elements[0].index])showTestPopup(metricTests[elements[0].index])}}});
   }
   panel.scrollIntoView({behavior:'smooth',block:'start'});
 }
@@ -612,34 +632,59 @@ function showMetricDetail(idx) {
 function renderCharts() {
   const d = DATA, co = {responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#9ba1b7',font:{size:11}}}},
     scales:{x:{grid:{color:'#2e334522'},ticks:{color:'#9ba1b7'}},y:{grid:{color:'#2e334522'},ticks:{color:'#9ba1b7'}}}};
-  const rssi = d.metrics.find(m=>m.key==='linkSignalLevelMean')?.values||[];
-  if (rssi.length) { const bins=Array(15).fill(0),bMin=-90,bMax=-20,bW=(bMax-bMin)/15;
-    rssi.forEach(v=>{const i=Math.min(14,Math.max(0,Math.floor((v-bMin)/bW)));bins[i]++});
-    new Chart(document.getElementById('chart-rssi'),{type:'bar',data:{labels:bins.map((_,i)=>Math.round(bMin+i*bW)),datasets:[{label:'Test Count',data:bins,backgroundColor:bins.map((_,i)=>{const v=bMin+i*bW;return v>=-65?'#22c55e88':v>=-72?'#eab30888':'#ef444488'}),borderRadius:4}]},options:{...co}}); }
-  const sd=[]; d.devices.forEach(dev=>dev.tests.forEach(t=>{if(t.snr!=null&&t.retry!=null&&typeof t.snr==='number')sd.push({x:t.snr,y:t.retry,color:t.color})}));
+
+  // Build flat test list with device name attached
+  const allTests = []; d.devices.forEach(dev=>dev.tests.forEach(t=>allTests.push({...t,device:dev.name})));
+
+  // RSSI histogram — click shows tests in that bin
+  const rssiVals = d.metrics.find(m=>m.key==='linkSignalLevelMean')?.values||[];
+  if (rssiVals.length) {
+    const bMin=-90,bMax=-20,bW=(bMax-bMin)/15, bins=Array(15).fill(0), binTests=Array.from({length:15},()=>[]);
+    const rssiTests = allTests.filter(t=>typeof t.rssi==='number');
+    rssiTests.forEach(t=>{const i=Math.min(14,Math.max(0,Math.floor((t.rssi-bMin)/bW)));bins[i]++;binTests[i].push(t)});
+    new Chart(document.getElementById('chart-rssi'),{type:'bar',
+      data:{labels:bins.map((_,i)=>Math.round(bMin+i*bW)+' dBm'),datasets:[{label:'Test Count',data:bins,backgroundColor:bins.map((_,i)=>{const v=bMin+i*bW;return v>=-65?'#22c55e88':v>=-72?'#eab30888':'#ef444488'}),borderRadius:4}]},
+      options:{...co,onClick:(evt,el)=>{if(el.length){const bt=binTests[el[0].index];if(bt.length===1)showTestPopup(bt[0]);else if(bt.length>1)showTestListPopup('Tests in RSSI range '+Math.round(bMin+el[0].index*bW)+' to '+Math.round(bMin+(el[0].index+1)*bW)+' dBm',bt)}}}});
+  }
+
+  // Scatter — click shows that test
+  const passDots=[], failDots=[];
+  allTests.forEach(t=>{if(t.snr!=null&&t.retry!=null&&typeof t.snr==='number'){(t.color==='green'?passDots:failDots).push(t)}});
   new Chart(document.getElementById('chart-scatter'),{type:'scatter',data:{datasets:[
-    {label:'Pass',data:sd.filter(s=>s.color==='green').map(s=>({x:s.x,y:s.y})),backgroundColor:'#22c55e',pointRadius:6},
-    {label:'Fail',data:sd.filter(s=>s.color!=='green').map(s=>({x:s.x,y:s.y})),backgroundColor:'#ef4444',pointRadius:6}]},
-    options:{...co,scales:{...co.scales,x:{...co.scales.x,title:{display:true,text:'SNR (dB)',color:'#9ba1b7'}},y:{...co.scales.y,title:{display:true,text:'Retry Rate (%)',color:'#9ba1b7'}}}}});
+    {label:'Pass',data:passDots.map(t=>({x:t.snr,y:t.retry})),backgroundColor:'#22c55e',pointRadius:6},
+    {label:'Fail',data:failDots.map(t=>({x:t.snr,y:t.retry})),backgroundColor:'#ef4444',pointRadius:6}]},
+    options:{...co,scales:{...co.scales,x:{...co.scales.x,title:{display:true,text:'SNR (dB)',color:'#9ba1b7'}},y:{...co.scales.y,title:{display:true,text:'Retry Rate (%)',color:'#9ba1b7'}}},
+    onClick:(evt,el)=>{if(el.length){const ds=el[0].datasetIndex===0?passDots:failDots;showTestPopup(ds[el[0].index])}}}});
+
+  // Problems bar — click drills into that problem
   const probs=d.problems.slice(0,8);
-  new Chart(document.getElementById('chart-problems'),{type:'bar',data:{labels:probs.map(p=>p[0].substring(0,30)),datasets:[{data:probs.map(p=>p[1]),backgroundColor:'#ef4444aa',borderRadius:4}]},options:{...co,indexAxis:'y',plugins:{legend:{display:false}}}});
+  new Chart(document.getElementById('chart-problems'),{type:'bar',
+    data:{labels:probs.map(p=>p[0].substring(0,30)),datasets:[{data:probs.map(p=>p[1]),backgroundColor:'#ef4444aa',borderRadius:4}]},
+    options:{...co,indexAxis:'y',plugins:{legend:{display:false}},
+    onClick:(evt,el)=>{if(el.length){showPage('problems');setTimeout(()=>showProblemDetail(probs[el[0].index][0]),100)}}}});
 }
 
 function renderDevices() {
   const d=DATA, devs=[...d.devices].sort((a,b)=>b.score-a.score);
+  // Device scores — click shows all tests for that device
   new Chart(document.getElementById('chart-device-scores'),{type:'bar',data:{labels:devs.map(d=>d.name.replace("Rocky's ",'')),datasets:[{data:devs.map(d=>d.score),backgroundColor:devs.map(d=>d.score>=70?'#22c55e':d.score>=40?'#eab308':'#ef4444'),borderRadius:6}]},
-    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{max:100,grid:{color:'#2e334522'},ticks:{color:'#9ba1b7'}},y:{grid:{display:false},ticks:{color:'#9ba1b7',font:{size:10}}}}}});
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{max:100,grid:{color:'#2e334522'},ticks:{color:'#9ba1b7'}},y:{grid:{display:false},ticks:{color:'#9ba1b7',font:{size:10}}}},
+    onClick:(evt,el)=>{if(el.length){const dev=devs[el[0].index];showTestListPopup(dev.name.replace("Rocky's ",'')+' — All Tests',dev.tests.map(t=>({...t,device:dev.name})))}}}});
+  // Pass/fail stacked — click shows tests for that device
   new Chart(document.getElementById('chart-device-passfail'),{type:'bar',data:{labels:devs.map(d=>d.name.replace("Rocky's ",'')),datasets:[{label:'Pass',data:devs.map(d=>d.pass),backgroundColor:'#22c55e',borderRadius:4},{label:'Fail',data:devs.map(d=>d.fail),backgroundColor:'#ef4444',borderRadius:4}]},
-    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{labels:{color:'#9ba1b7'}}},scales:{x:{stacked:true,grid:{color:'#2e334522'},ticks:{color:'#9ba1b7'}},y:{stacked:true,grid:{display:false},ticks:{color:'#9ba1b7',font:{size:10}}}}}});
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{labels:{color:'#9ba1b7'}}},scales:{x:{stacked:true,grid:{color:'#2e334522'},ticks:{color:'#9ba1b7'}},y:{stacked:true,grid:{display:false},ticks:{color:'#9ba1b7',font:{size:10}}}},
+    onClick:(evt,el)=>{if(el.length){const dev=devs[el[0].index];const filter=el[0].datasetIndex===0?'green':'fail';const tests=dev.tests.filter(t=>filter==='green'?t.color==='green':t.color!=='green').map(t=>({...t,device:dev.name}));showTestListPopup(dev.name.replace("Rocky's ",'')+' — '+(filter==='green'?'Passed':'Failed')+' Tests',tests)}}}});
   const tbody=document.querySelector('#device-table tbody'); tbody.innerHTML='';
-  d.devices.forEach(dev=>dev.tests.forEach(t=>{
+  window._allTestsFlat=[]; let allTestIdx=0;
+  d.devices.forEach(dev=>dev.tests.forEach(t=>{window._allTestsFlat.push({...t,device:dev.name});
     const date=new Date(t.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
     const dot=`<span class="dot dot-${t.color}"></span>${t.color==='green'?'Pass':'Fail'}`;
     const rssi=typeof t.rssi==='number'?t.rssi+' dBm':'--', snr=typeof t.snr==='number'?t.snr+' dB':'--';
     const retry=typeof t.retry==='number'?t.retry+'%':'--';
     const phy=typeof t.phyRate==='number'?Math.round(t.phyRate)+' Mbps':(typeof t.phyRate==='string'&&t.phyRate!=='--'?t.phyRate+' Mbps':'--');
     const probs=t.problems.length?t.problems.map(p=>`<span class="tag">${p.split(' (')[0]}</span>`).join(''):'<span style="color:var(--text2)">None</span>';
-    tbody.innerHTML+=`<tr><td><b>${dev.name.replace("Rocky's ",'')}</b></td><td>${date}</td><td>${dot}</td><td>${t.profile}</td><td>${rssi}</td><td>${snr}</td><td>${retry}</td><td>${phy}</td><td>${probs}</td><td><a href="${LINK_LIVE_BASE}${t.id}" target="_blank" class="link-live-link">View</a></td></tr>`;
+    const tidx=allTestIdx++;
+    tbody.innerHTML+=`<tr style="cursor:pointer" onclick="showTestPopup(window._allTestsFlat[${tidx}])"><td><b>${dev.name.replace("Rocky's ",'')}</b></td><td>${date}</td><td>${dot}</td><td>${t.profile}</td><td>${rssi}</td><td>${snr}</td><td>${retry}</td><td>${phy}</td><td>${probs}</td><td><a href="${LINK_LIVE_BASE}${t.id}" target="_blank" class="link-live-link" onclick="event.stopPropagation()">View</a></td></tr>`;
   }));
 }
 
@@ -880,6 +925,71 @@ function showProblemDetail(name) {
   </div>`;
   panel.scrollIntoView({behavior:'smooth',block:'start'});
 }
+
+// ============================================================================
+// TEST DETAIL POPUP — shows full info for a single test
+// ============================================================================
+function showTestPopup(t) {
+  if (!t) return;
+  const dev = t.device || 'Unknown Device';
+  const date = new Date(t.date).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const statusDot = `<span class="dot dot-${t.color}"></span>${t.color==='green'?'Passed':'Failed'}`;
+  const v = (val,unit) => typeof val==='number' ? val+' '+unit : (typeof val==='string'&&val!=='--'?val+' '+unit:'—');
+  const probHtml = t.problems.length
+    ? t.problems.map(p => {const c=p.split(' (')[0]; const kb=getProblemKB(c);
+        return `<div style="margin-bottom:8px;padding:8px 12px;background:rgba(239,68,68,.06);border-left:3px solid var(--red);border-radius:6px;cursor:pointer" onclick="closePopup();showPage('problems');setTimeout(()=>showProblemDetail('${c.replace(/'/g,"\\'")}'),100)">
+          <b style="font-size:13px">${c}</b> <span style="color:var(--red);font-size:11px">${kb.severity.toUpperCase()}</span>
+          <p style="font-size:12px;color:var(--text2);margin:4px 0 0">${kb.what.substring(0,120)}... <span style="color:var(--accent2)">View details →</span></p></div>`}).join('')
+    : '<span style="color:var(--green)">No problems detected</span>';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'popup-overlay';
+  overlay.onclick = e => { if(e.target===overlay) overlay.remove(); };
+  overlay.innerHTML = `<div class="popup">
+    <button class="popup-close" onclick="this.closest('.popup-overlay').remove()">×</button>
+    <h3>${dev.replace("Rocky's ",'')} <span style="font-size:13px;font-weight:400;color:var(--text2)">${date}</span></h3>
+    <div style="margin-bottom:16px">${statusDot} &nbsp; <span class="tag">${t.profile||'No profile'}</span></div>
+    <div class="popup-grid">
+      <div class="popup-stat"><div class="lbl">Signal (RSSI)</div><div class="val">${v(t.rssi,'dBm')}</div></div>
+      <div class="popup-stat"><div class="lbl">SNR</div><div class="val">${v(t.snr,'dB')}</div></div>
+      <div class="popup-stat"><div class="lbl">Noise Floor</div><div class="val">${v(t.noise,'dBm')}</div></div>
+      <div class="popup-stat"><div class="lbl">Retry Rate</div><div class="val">${v(t.retry,'%')}</div></div>
+      <div class="popup-stat"><div class="lbl">PHY Data Rate</div><div class="val">${typeof t.phyRate==='number'?Math.round(t.phyRate)+' Mbps':v(t.phyRate,'Mbps')}</div></div>
+      <div class="popup-stat"><div class="lbl">Channel Util</div><div class="val">${v(t.chanUtil,'%')}</div></div>
+    </div>
+    <div style="margin-bottom:16px"><b style="font-size:13px">Problems</b><div style="margin-top:8px">${probHtml}</div></div>
+    <a href="${LINK_LIVE_BASE}${t.id}" target="_blank" class="link-live-link" style="padding:8px 16px;font-size:13px">Open in Link-Live →</a>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+// List popup — shows a table of tests (used by histogram bins, device clicks)
+function showTestListPopup(title, tests) {
+  if (!tests||!tests.length) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'popup-overlay';
+  overlay.onclick = e => { if(e.target===overlay) overlay.remove(); };
+  const rows = tests.map(t => {
+    const date = new Date(t.date).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    const dot = `<span class="dot dot-${t.color}"></span>`;
+    const rssi = typeof t.rssi==='number'?t.rssi:'—';
+    const snr = typeof t.snr==='number'?t.snr:'—';
+    return `<tr style="cursor:pointer" onclick="closePopup();showTestPopup(window._popupTests[${tests.indexOf(t)}])">
+      <td>${dot}${(t.device||'').replace("Rocky's ",'')}</td><td>${date}</td><td>${t.profile||''}</td><td>${rssi}</td><td>${snr}</td>
+      <td>${t.problems.length?'<span style="color:var(--red)">'+t.problems.length+'</span>':'<span style="color:var(--green)">0</span>'}</td></tr>`;
+  }).join('');
+  window._popupTests = tests;
+  overlay.innerHTML = `<div class="popup">
+    <button class="popup-close" onclick="this.closest('.popup-overlay').remove()">×</button>
+    <h3>${title} <span style="font-size:13px;font-weight:400;color:var(--text2)">(${tests.length} tests)</span></h3>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Click a row for full test details</p>
+    <table><thead><tr><th>Device</th><th>Date</th><th>Profile</th><th>RSSI</th><th>SNR</th><th>Problems</th></tr></thead>
+    <tbody>${rows}</tbody></table>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function closePopup() { document.querySelectorAll('.popup-overlay').forEach(o=>o.remove()); }
 </script>
 </body>
 </html>
