@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BionicAlly — Wi-Fi Health Report</title>
+<link rel="icon" href="favicon.ico" type="image/x-icon">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0f1117; --surface: #1a1d27; --surface2: #242836; --border: #2e3345;
+  --text: #e4e6ef; --text2: #9ba1b7; --accent: #6366f1; --accent2: #818cf8;
+  --green: #22c55e; --yellow: #eab308; --red: #ef4444; --blue: #3b82f6;
+  --radius: 12px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg); color: var(--text); line-height: 1.5; }
+a { color: var(--accent2); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Login */
+.login-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg);
+  display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.login-box { background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  padding: 40px; width: 400px; max-width: 90vw; }
+.login-box h1 { font-size: 28px; margin-bottom: 4px; }
+.login-box h1 span { color: var(--accent2); }
+.login-box p { color: var(--text2); font-size: 14px; margin-bottom: 24px; }
+.login-box label { display: block; font-size: 13px; color: var(--text2); margin-bottom: 6px; font-weight: 500; }
+.login-box input { width: 100%; padding: 10px 14px; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 14px; margin-bottom: 16px; outline: none; }
+.login-box input:focus { border-color: var(--accent); }
+.login-btn { width: 100%; padding: 12px; background: var(--accent); color: #fff; border: none;
+  border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background .15s; }
+.login-btn:hover { background: var(--accent2); }
+.login-btn:disabled { opacity: .5; cursor: not-allowed; }
+.login-error { background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.2); border-radius: 8px;
+  padding: 10px 14px; font-size: 13px; color: var(--red); margin-bottom: 16px; display: none; }
+.login-status { text-align: center; color: var(--text2); font-size: 13px; margin-top: 12px; }
+.login-security { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.login-security p { font-size: 12px; color: var(--text2); margin-bottom: 0; }
+.login-security ul { list-style: none; font-size: 12px; color: var(--text2); margin-top: 8px; }
+.login-security li::before { content: "🔒 "; }
+
+/* Layout */
+.header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 24px;
+  display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 100; }
+.header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+.header h1 span { color: var(--accent2); }
+.header .subtitle { color: var(--text2); font-size: 13px; margin-left: auto; }
+.nav { display: flex; gap: 4px; margin-left: 24px; }
+.nav button { background: none; border: 1px solid transparent; color: var(--text2); padding: 6px 14px;
+  border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all .15s; }
+.nav button:hover { background: var(--surface2); color: var(--text); }
+.nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.logout-btn { background: none; border: 1px solid var(--border); color: var(--text2); padding: 4px 12px;
+  border-radius: 6px; cursor: pointer; font-size: 12px; margin-left: 8px; }
+.logout-btn:hover { border-color: var(--red); color: var(--red); }
+.container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+.app-content { display: none; }
+
+/* Pages */
+.page { display: none; }
+.page.active { display: block; }
+
+/* Cards */
+.grid { display: grid; gap: 16px; }
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+.grid-5 { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 900px) { .grid-2,.grid-3,.grid-4,.grid-5 { grid-template-columns: 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+.card h3 { font-size: 14px; color: var(--text2); font-weight: 500; margin-bottom: 12px; }
+.card-lg { padding: 24px; }
+.gauge-wrap { text-align: center; padding: 16px 0; }
+.gauge-score { font-size: 72px; font-weight: 800; letter-spacing: -3px; }
+.gauge-label { font-size: 14px; color: var(--text2); margin-top: -4px; }
+.metric-card { cursor: pointer; transition: all .15s; position: relative; overflow: hidden; }
+.metric-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.metric-card .value { font-size: 28px; font-weight: 700; letter-spacing: -1px; }
+.metric-card .unit { font-size: 13px; color: var(--text2); margin-left: 4px; }
+.metric-card .score-bar { height: 4px; border-radius: 2px; margin-top: 12px; background: var(--surface2); }
+.metric-card .score-fill { height: 100%; border-radius: 2px; transition: width .6s ease; }
+.metric-card .meta { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: var(--text2); }
+.grade { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+.grade-good { background: rgba(34,197,94,.15); color: var(--green); }
+.grade-fair { background: rgba(234,179,8,.15); color: var(--yellow); }
+.grade-poor { background: rgba(239,68,68,.15); color: var(--red); }
+.stats-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; flex: 1; min-width: 140px; }
+.stat .val { font-size: 24px; font-weight: 700; }
+.stat .lbl { font-size: 12px; color: var(--text2); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; padding: 10px 12px; border-bottom: 2px solid var(--border); color: var(--text2); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+tr:hover td { background: var(--surface2); }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+.dot-green { background: var(--green); } .dot-yellow { background: var(--yellow); } .dot-red { background: var(--red); }
+.detail-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-top: 16px; }
+.detail-panel h2 { font-size: 18px; margin-bottom: 4px; }
+.detail-panel .desc { color: var(--text2); font-size: 14px; margin-bottom: 16px; }
+.threshold-row { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.threshold { padding: 10px 16px; border-radius: 8px; font-size: 13px; flex: 1; min-width: 150px; }
+.threshold b { display: block; font-size: 18px; margin-bottom: 2px; }
+.threshold-good { background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.2); }
+.threshold-accept { background: rgba(234,179,8,.1); border: 1px solid rgba(234,179,8,.2); }
+.threshold-poor { background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.2); }
+.back-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 6px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; margin-bottom: 16px; }
+.back-btn:hover { border-color: var(--accent); }
+.link-live-link { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; background: var(--surface2); border-radius: 6px; font-size: 12px; color: var(--accent2); }
+.chart-container { position: relative; height: 300px; }
+.scoring-formula { background: var(--surface2); border-radius: 8px; padding: 16px; font-family: monospace; font-size: 13px; margin: 12px 0; line-height: 1.8; }
+.source-list { list-style: none; }
+.source-list li { padding: 8px 0; border-bottom: 1px solid var(--border); }
+.source-list li:last-child { border: none; }
+.tag { display: inline-block; padding: 2px 8px; background: var(--surface2); border-radius: 4px; font-size: 11px; color: var(--text2); margin-right: 4px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div class="login-overlay" id="login-overlay">
+  <div class="login-box">
+    <h1>Bionic<span>Ally</span></h1>
+    <p>Sign in with your Link-Live credentials to load your Wi-Fi health data.</p>
+    <div class="login-error" id="login-error"></div>
+    <form id="login-form" onsubmit="handleLogin(event)">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="you@company.com" required autocomplete="username">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="Your Link-Live password" required autocomplete="current-password">
+      <button type="submit" class="login-btn" id="login-btn">Sign In &amp; Load Data</button>
+    </form>
+    <div class="login-status" id="login-status"></div>
+    <div class="login-security">
+      <p><b>Your credentials are safe:</b></p>
+      <ul>
+        <li>Password is sent directly to Link-Live's auth server (HTTPS)</li>
+        <li>Password is never stored — flushed from memory after auth</li>
+        <li>Auth token lives only in this browser tab's memory</li>
+        <li>Closing or refreshing this page destroys all credentials</li>
+        <li>No data is sent to any server except link-live.com</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app-content" id="app-content">
+<div class="header">
+  <h1>Bionic<span>Ally</span></h1>
+  <div class="nav">
+    <button class="active" data-page="dashboard" onclick="showPage('dashboard')">Dashboard</button>
+    <button data-page="devices" onclick="showPage('devices')">Devices</button>
+    <button data-page="scoring" onclick="showPage('scoring')">Scoring</button>
+    <button data-page="problems" onclick="showPage('problems')">Problems</button>
+  </div>
+  <div class="subtitle" id="org-name">Wi-Fi Health Report</div>
+  <button class="logout-btn" onclick="doLogout()">Sign Out</button>
+</div>
+
+<div class="container">
+  <div id="page-dashboard" class="page active">
+    <div class="stats-row" id="stats-row"></div>
+    <div class="grid grid-2" style="margin-bottom:20px">
+      <div class="card card-lg gauge-wrap" id="gauge-card"></div>
+      <div class="card card-lg"><h3>Signal Strength Distribution</h3><div class="chart-container"><canvas id="chart-rssi"></canvas></div></div>
+    </div>
+    <h3 style="margin-bottom:12px;font-size:15px;color:var(--text2)">Metric Scorecards <span style="font-weight:400;font-size:12px">(click for details)</span></h3>
+    <div class="grid grid-5" id="metric-cards" style="margin-bottom:20px"></div>
+    <div id="metric-detail" style="display:none"></div>
+    <div class="grid grid-2">
+      <div class="card card-lg"><h3>SNR vs Retry Rate</h3><div class="chart-container"><canvas id="chart-scatter"></canvas></div></div>
+      <div class="card card-lg"><h3>Top Problems</h3><div class="chart-container"><canvas id="chart-problems"></canvas></div></div>
+    </div>
+  </div>
+  <div id="page-devices" class="page">
+    <h2 style="margin-bottom:16px">Device Health</h2>
+    <div class="grid grid-2" style="margin-bottom:20px">
+      <div class="card card-lg"><h3>Per-Device Health Score</h3><div class="chart-container"><canvas id="chart-device-scores"></canvas></div></div>
+      <div class="card card-lg"><h3>Test Results by Device</h3><div class="chart-container"><canvas id="chart-device-passfail"></canvas></div></div>
+    </div>
+    <div class="card"><h3>All Test Results</h3>
+      <table id="device-table"><thead><tr><th>Device</th><th>Date</th><th>Status</th><th>Profile</th><th>RSSI</th><th>SNR</th><th>Retry</th><th>PHY Rate</th><th>Problems</th><th>Link-Live</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+  <div id="page-scoring" class="page">
+    <h2 style="margin-bottom:8px">Scoring Methodology</h2>
+    <p style="color:var(--text2);margin-bottom:20px">How the Wi-Fi Health Score is calculated from industry-standard benchmarks.</p>
+    <div class="card card-lg" style="margin-bottom:20px"><h3>Composite Score Formula</h3><div class="scoring-formula" id="scoring-formula"></div>
+      <p style="color:var(--text2);font-size:13px;margin-top:12px"><b>Floor Rule:</b> If any single metric scores below 30 (Poor), the composite score is capped at 65 regardless of other metrics.</p></div>
+    <div class="card card-lg" style="margin-bottom:20px"><h3>Per-Metric Scoring</h3>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:16px">Each metric is scored 0–100 using a linear interpolation between industry thresholds:</p><div id="scoring-metrics"></div></div>
+    <div class="card card-lg"><h3>Industry Sources</h3><ul class="source-list" id="source-list"></ul></div>
+  </div>
+  <div id="page-problems" class="page">
+    <h2 style="margin-bottom:16px">Problem Analysis</h2>
+    <div class="grid grid-2" style="margin-bottom:20px">
+      <div class="card card-lg"><h3>Problems by Type</h3><div class="chart-container"><canvas id="chart-problems2"></canvas></div></div>
+      <div class="card card-lg"><h3>Problems by Device</h3><div class="chart-container"><canvas id="chart-problems-device"></canvas></div></div>
+    </div>
+    <div class="card"><h3>Problem Details</h3>
+      <table id="problem-table"><thead><tr><th>Problem</th><th>Occurrences</th><th>Affected Devices</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+// ============================================================================
+// BENCHMARKS — embedded, no external data file needed
+// ============================================================================
+const BENCHMARKS = [
+  {key:"linkSignalLevelMean",name:"Signal Strength (RSSI)",unit:"dBm",good:-65,accept:-72,direction:"higher",weight:15,
+   description:"Received signal power at the client device. The primary indicator of connection quality.",
+   source:"Cisco Site Survey Guidelines, Ekahau Design Guide",source_url:"https://www.cisco.com/c/en/us/support/docs/wireless/5500-series-wireless-controllers/116057-site-survey-guidelines-wlan-00.html",
+   detail:"RSSI measures the power level of the Wi-Fi signal received by the client device. Industry consensus (Cisco, Ekahau, CWNA) targets -65 dBm or better for voice/video applications and -72 dBm as the minimum for reliable data connectivity. Below -75 dBm, most vendors flag connections as marginal with high error rates.",
+   why_good:"Your average RSSI of {avg} dBm is well above the -65 dBm threshold for voice/video. Clients are receiving strong signal from nearby APs, enabling high MCS rates and reliable connections.",
+   why_bad:"Your average RSSI of {avg} dBm falls below the -65 dBm threshold. Clients are too far from APs or obstructions are attenuating signal. Consider adding APs or adjusting power levels.",
+   learn_more:[{title:"Cisco: Site Survey Guidelines for WLANs",url:"https://www.cisco.com/c/en/us/support/docs/wireless/5500-series-wireless-controllers/116057-site-survey-guidelines-wlan-00.html"},{title:"MetaGeek: Wi-Fi Signal Strength Basics",url:"https://www.metageek.com/training/resources/wifi-signal-strength-basics/"},{title:"Ekahau: Primary & Secondary Coverage Design",url:"https://divdyn.com/primary-secondary-coverage/"}]},
+  {key:"linkSNRMean",name:"Signal-to-Noise Ratio (SNR)",unit:"dB",good:25,accept:20,direction:"higher",weight:15,
+   description:"Gap between signal and noise floor. More reliable than RSSI alone.",
+   source:"Cisco Meraki, NetAlly SNR Guide, CWNA Study Guide",source_url:"https://documentation.meraki.com/Wireless/Design_and_Configure/Architecture_and_Best_Practices/Signal-to-Noise_Ratio_(SNR)_and_Wireless_Signal_Strength",
+   detail:"SNR accounts for both signal strength and the noise floor. Cisco requires >= 25 dB for voice-grade WLANs; Meraki reduces AP health scores below 16 dB.",
+   why_good:"Your average SNR of {avg} dB far exceeds the 25 dB voice-grade minimum. The noise floor is low relative to signal strength, meaning the RF environment is clean.",
+   why_bad:"Your average SNR of {avg} dB is below the 25 dB threshold needed for reliable voice/video. Either the signal is weak, the noise floor is elevated, or both.",
+   learn_more:[{title:"Cisco Meraki: SNR and Signal Strength",url:"https://documentation.meraki.com/Wireless/Design_and_Configure/Architecture_and_Best_Practices/Signal-to-Noise_Ratio_(SNR)_and_Wireless_Signal_Strength"},{title:"NetAlly: Understanding Noise with Wi-Fi SNR",url:"https://www.netally.com/tech-tips/understand-noise-with-wi-fi-snr/"}]},
+  {key:"linkNoiseLevelMean",name:"Noise Floor",unit:"dBm",good:-90,accept:-85,direction:"lower",weight:8,
+   description:"Ambient RF energy. Elevated noise compresses SNR even with strong signal.",
+   source:"IEEE 802.11-2020, Cisco VoWLAN Design Guide",source_url:"https://www.cisco.com/en/US/docs/solutions/Enterprise/Mobility/emob30dg/Voice.html",
+   detail:"The noise floor represents all non-signal RF energy on the channel. A clean enterprise should see -90 to -98 dBm. Values above -85 dBm compress SNR significantly.",
+   why_good:"Your average noise floor of {avg} dBm indicates a clean RF environment with minimal interference.",
+   why_bad:"Your average noise floor of {avg} dBm is elevated. Sources may include microwaves, Bluetooth, DECT phones, or poorly shielded electronics.",
+   learn_more:[{title:"Cisco: VoWLAN RF Design Guide",url:"https://www.cisco.com/en/US/docs/solutions/Enterprise/Mobility/emob30dg/Voice.html"}]},
+  {key:"apChannelUtil",name:"Channel Utilization",unit:"%",good:30,accept:50,direction:"lower",weight:12,
+   description:"Percentage of airtime consumed by Wi-Fi transmissions. Best indicator of capacity.",
+   source:"Mist/Juniper Design Guide, 7SIGNAL",source_url:"https://design.mist.com/snr-co-channel-contention/",
+   detail:"Channel utilization measures available airtime being consumed. Below 30% provides excellent user experience. Industry consensus sets 50% as the ceiling before degradation.",
+   why_good:"Your average channel utilization of {avg}% is well below 30%, meaning plenty of available airtime. The network has significant capacity headroom.",
+   why_bad:"Your average channel utilization of {avg}% exceeds the 30% target. Consider band steering to 5/6 GHz or adding APs.",
+   learn_more:[{title:"Mist/Juniper: SNR & Co-Channel Contention Design",url:"https://design.mist.com/snr-co-channel-contention/"},{title:"7SIGNAL: Co-Channel Interference",url:"https://7signal.com/blog/co-channel-interference/"}]},
+  {key:"apNon80211ChannelUtil",name:"Non-802.11 Interference",unit:"%",good:5,accept:15,direction:"lower",weight:5,
+   description:"Airtime from non-Wi-Fi sources (microwaves, Bluetooth, DECT phones).",
+   source:"NetAlly AirCheck G3 Air Quality Profiles",source_url:"https://www.netally.com/user-guides/aircheckg3/Content/B_Testing-Applications/AutoTest/Air-Quality-AutoTest-Profiles.htm",
+   detail:"Non-802.11 interference from devices like microwaves, Bluetooth, DECT phones. Above 15% indicates an active interferer requiring remediation.",
+   why_good:"Your non-802.11 interference of {avg}% is negligible. The spectrum is clean for Wi-Fi operation.",
+   why_bad:"Your non-802.11 interference of {avg}% indicates active non-Wi-Fi RF sources consuming airtime. Use spectrum analysis to identify the source.",
+   learn_more:[{title:"NetAlly: AirCheck G3 Air Quality AutoTest",url:"https://www.netally.com/user-guides/aircheckg3/Content/B_Testing-Applications/AutoTest/Air-Quality-AutoTest-Profiles.htm"}]},
+  {key:"linkRetryRateMean",name:"Retry Rate",unit:"%",good:10,accept:20,direction:"lower",weight:10,
+   description:"Percentage of frames requiring retransmission. Directly consumes airtime.",
+   source:"Arista Community, Extreme Networks, CWNA",source_url:"https://arista.my.site.com/AristaCommunity/s/question/0D5Uw00000TkpGaKAJ/",
+   detail:"Each retry doubles the airtime cost of that frame. Below 10% is normal. Sustained rates above 20% are critical.",
+   why_good:"Your average retry rate of {avg}% is well below 10%, indicating clean transmissions with very few retries.",
+   why_bad:"Your average retry rate of {avg}% exceeds the 10% threshold. Cross-reference with SNR and channel utilization to diagnose.",
+   learn_more:[{title:"Arista: Retry Rate & Utilization Thresholds",url:"https://arista.my.site.com/AristaCommunity/s/question/0D5Uw00000TkpGaKAJ/"},{title:"Extreme Networks: Understanding High Retry Percentages",url:"https://community.extremenetworks.com/t5/extremewireless-wing/understanding-high-quot-retry-percentage-quot-values/td-p/89545"}]},
+  {key:"linkPhyDataRate",name:"PHY Data Rate",unit:"Mbps",good:400,accept:100,direction:"higher",weight:7,
+   description:"Negotiated physical layer rate. Reflects signal quality, channel width, and streams.",
+   source:"7SIGNAL MCS Rate Analysis, IEEE 802.11ax",source_url:"https://7signal.com/blog/mcs-rates-and-network-health/",
+   detail:"PHY data rate is the negotiated physical layer speed, determined by the MCS index. For Wi-Fi 6 with 80 MHz channels: 400+ Mbps is good.",
+   why_good:"Your average PHY rate of {avg} Mbps exceeds 400 Mbps, indicating clients are negotiating high MCS indices with wide channels.",
+   why_bad:"Your average PHY rate of {avg} Mbps is below the 400 Mbps target. Check RSSI, SNR, and channel width configuration.",
+   learn_more:[{title:"7SIGNAL: MCS Rates and Network Health",url:"https://7signal.com/blog/mcs-rates-and-network-health/"}]},
+  {key:"linkPhyPctOfMaxDataRateMean",name:"% of Max Data Rate",unit:"%",good:60,accept:30,direction:"higher",weight:7,
+   description:"How much of the device's maximum capability is being achieved.",
+   source:"NetAlly EtherScope/CyberScope Metrics",source_url:"https://www.netally.com/products/link-live/",
+   detail:"Normalizes PHY data rate against the theoretical maximum. 60%+ indicates efficient use of the radio. Below 30% suggests RF-limited performance.",
+   why_good:"Your devices are achieving {avg}% of their maximum data rate capability, indicating efficient radio utilization.",
+   why_bad:"Your devices are only achieving {avg}% of their maximum data rate. Check AP channel width and power settings.",
+   learn_more:[{title:"NetAlly: Link-Live Cloud Service",url:"https://www.netally.com/products/link-live/"}]},
+];
+const CONN_WEIGHT = 12, PROB_WEIGHT = 9;
+const FAILURE_KEYS = ['linkFailureReasons','apFailureReasons','ipConfigFailureReasons','airQualityFailureReasons','eapFailureReasons','failureReasons'];
+const SOURCES = [
+  {name:"Cisco Site Survey Guidelines",url:"https://www.cisco.com/c/en/us/support/docs/wireless/5500-series-wireless-controllers/116057-site-survey-guidelines-wlan-00.html"},
+  {name:"Cisco Meraki SNR & Signal Strength",url:"https://documentation.meraki.com/Wireless/Design_and_Configure/Architecture_and_Best_Practices/Signal-to-Noise_Ratio_(SNR)_and_Wireless_Signal_Strength"},
+  {name:"Ekahau / Divergent Dynamics Coverage Design",url:"https://divdyn.com/primary-secondary-coverage/"},
+  {name:"Mist/Juniper SNR & CCI Design",url:"https://design.mist.com/snr-co-channel-contention/"},
+  {name:"7SIGNAL MCS Rates & Network Health",url:"https://7signal.com/blog/mcs-rates-and-network-health/"},
+  {name:"NetAlly AirCheck G3 Air Quality Profiles",url:"https://www.netally.com/user-guides/aircheckg3/Content/B_Testing-Applications/AutoTest/Air-Quality-AutoTest-Profiles.htm"},
+  {name:"Arista Retry Rate Thresholds",url:"https://arista.my.site.com/AristaCommunity/s/question/0D5Uw00000TkpGaKAJ/"},
+  {name:"CWNA Study Guide (Sybex/Wiley)",url:"https://www.wiley.com/en-us/CWNA+Certified+Wireless+Network+Administrator+Study+Guide"},
+];
+const LINK_LIVE_BASE = 'https://link-live.com/results/';
+
+// ============================================================================
+// AUTH — credentials live only in local variables, flushed after use
+// ============================================================================
+let _token = null;  // lives only in memory, destroyed on close/refresh
+
+async function llLogin(email, password) {
+  const creds = btoa(email + ':' + password);
+  const res = await fetch('https://id.link-live.com/v2/auth/login', {
+    method: 'POST',
+    headers: { 'Authorization': 'Basic ' + creds, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ claims: { app: '3pGv3iSAICObaFX7EjdojO' } })
+  });
+  if (!res.ok) throw new Error('Login failed — check your email and password');
+  const data = await res.json();
+  _token = data.accessToken;
+  // password variable goes out of scope — flushed
+  return data;
+}
+
+async function llGet(path) {
+  const res = await fetch('https://link-live.com/v1/admin' + path, {
+    headers: { 'Authorization': 'Access ' + _token, 'Content-Type': 'application/json' }
+  });
+  if (!res.ok) throw new Error('API error: ' + res.status);
+  return res.json();
+}
+
+function doLogout() {
+  _token = null;
+  document.getElementById('app-content').style.display = 'none';
+  document.getElementById('login-overlay').style.display = 'flex';
+  document.getElementById('login-password').value = '';
+  // Destroy all chart instances
+  Object.values(Chart.instances).forEach(c => c.destroy());
+}
+
+// ============================================================================
+// LOGIN HANDLER
+// ============================================================================
+async function handleLogin(e) {
+  e.preventDefault();
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  const btn = document.getElementById('login-btn');
+  const err = document.getElementById('login-error');
+  const status = document.getElementById('login-status');
+  btn.disabled = true; err.style.display = 'none';
+  status.textContent = 'Authenticating with Link-Live...';
+  try {
+    const authData = await llLogin(email, password);
+    // Flush password from DOM immediately
+    document.getElementById('login-password').value = '';
+    const orgName = authData.context?.organization?.name || 'Your Organization';
+    status.textContent = 'Loading Wi-Fi results...';
+    const results = await llGet('/results?offset=0&limit=200&sort=' + encodeURIComponent('{"created_at":-1}') + '&query=' + encodeURIComponent('{"resultType":"wireless"}'));
+    status.textContent = 'Processing ' + results.length + ' results...';
+    const DATA = processResults(results, orgName);
+    document.getElementById('login-overlay').style.display = 'none';
+    document.getElementById('app-content').style.display = 'block';
+    document.getElementById('org-name').textContent = orgName + ' — Wi-Fi Health Report';
+    window.DATA = DATA;
+    renderDashboard();
+    renderDevices();
+    renderScoring();
+    renderProblems();
+  } catch (ex) {
+    err.textContent = ex.message;
+    err.style.display = 'block';
+    status.textContent = '';
+  }
+  btn.disabled = false;
+}
+
+// ============================================================================
+// DATA PROCESSING — same logic as generate_report.py, now in JS
+// ============================================================================
+function scoreMetric(values, good, accept, direction) {
+  if (!values.length) return 50;
+  return values.reduce((sum, v) => {
+    let s;
+    if (direction === 'higher') {
+      if (v >= good) s = 100;
+      else if (v >= accept) s = 50 + 50 * (v - accept) / (good - accept);
+      else { const floor = accept - Math.abs(good - accept); s = Math.max(0, 50 * (v - floor) / (accept - floor)); }
+    } else {
+      if (v <= good) s = 100;
+      else if (v <= accept) s = 50 + 50 * (accept - v) / (accept - good);
+      else { const ceil = accept + Math.abs(accept - good); s = Math.max(0, 50 * (ceil - v) / (ceil - accept)); }
+    }
+    return sum + Math.min(100, Math.max(0, s));
+  }, 0) / values.length;
+}
+
+function processResults(allResults, orgName) {
+  const connected = allResults.filter(r => typeof r.linkSignalLevelMean === 'number');
+  const getVals = key => connected.map(r => r[key]).filter(v => typeof v === 'number');
+
+  // Metrics
+  const metrics = BENCHMARKS.map(b => {
+    const vals = getVals(b.key);
+    const sc = Math.round(scoreMetric(vals, b.good, b.accept, b.direction) * 10) / 10;
+    const avg = vals.length ? Math.round(vals.reduce((a,b)=>a+b,0) / vals.length * 10) / 10 : null;
+    const isGood = sc >= 70;
+    const why = (isGood ? b.why_good : b.why_bad).replace('{avg}', avg);
+    return { ...b, values: vals, avg, min: vals.length ? Math.round(Math.min(...vals)*10)/10 : null,
+      max: vals.length ? Math.round(Math.max(...vals)*10)/10 : null, count: vals.length, score: sc, why, is_good: isGood };
+  });
+
+  // Connection success
+  const successful = allResults.filter(r => r.overallColor === 'green').length;
+  const connRate = Math.round(successful / allResults.length * 1000) / 10;
+  const connScore = Math.round(Math.min(100, Math.max(0, connRate * 1.11)) * 10) / 10;
+
+  // Problem diversity
+  const problemSet = new Set();
+  const problemCounter = {};
+  const deviceProblems = {};
+  allResults.forEach(r => {
+    const unit = r.unit_name;
+    if (!deviceProblems[unit]) deviceProblems[unit] = {};
+    FAILURE_KEYS.forEach(k => (r[k]||[]).forEach(item => {
+      if (item && item !== 'Success') {
+        const clean = item.split(' (')[0];
+        problemSet.add(clean);
+        problemCounter[clean] = (problemCounter[clean]||0) + 1;
+        deviceProblems[unit][clean] = (deviceProblems[unit][clean]||0) + 1;
+      }
+    }));
+  });
+  const nProblems = problemSet.size;
+  const probScore = Math.max(0, 100 - nProblems * 15);
+
+  // Composite
+  let ws = metrics.reduce((s, m) => s + m.score * m.weight, 0);
+  ws += connScore * CONN_WEIGHT + probScore * PROB_WEIGHT;
+  let healthScore = Math.round(ws / 100);
+  if (metrics.some(m => m.score < 30 && m.values.length)) healthScore = Math.min(healthScore, 65);
+  healthScore = Math.min(100, Math.max(0, healthScore));
+
+  // Problems sorted
+  const problems = Object.entries(problemCounter).sort((a,b) => b[1]-a[1]);
+
+  // Devices
+  const deviceMap = {};
+  allResults.forEach(r => {
+    if (!deviceMap[r.unit_name]) deviceMap[r.unit_name] = { name: r.unit_name, tests: [], total: 0, pass: 0, fail: 0, problems: deviceProblems[r.unit_name]||{} };
+    const d = deviceMap[r.unit_name];
+    d.total++; r.overallColor === 'green' ? d.pass++ : d.fail++;
+    d.tests.push({ id: r._id, date: r.created_at, color: r.overallColor, profile: r.profileName||'',
+      rssi: r.linkSignalLevelMean, snr: r.linkSNRMean, noise: r.linkNoiseLevelMean,
+      retry: r.linkRetryRateMean, phyRate: r.linkPhyDataRate, chanUtil: r.apChannelUtil,
+      problems: FAILURE_KEYS.flatMap(k => (r[k]||[]).filter(i => i && i !== 'Success')) });
+  });
+  const devices = Object.values(deviceMap);
+  devices.forEach(d => {
+    const passRate = d.pass / d.total;
+    let base = passRate * 60;
+    const mt = d.tests.filter(t => typeof t.rssi === 'number');
+    if (mt.length) {
+      const avgR = mt.reduce((s,t) => s+t.rssi, 0) / mt.length;
+      const snrT = mt.filter(t => typeof t.snr === 'number');
+      const avgS = snrT.length ? snrT.reduce((s,t) => s+t.snr, 0) / snrT.length : 0;
+      base += scoreMetric([avgR], -65, -72, 'higher') * 0.2 + scoreMetric([avgS], 25, 20, 'higher') * 0.2;
+    }
+    d.score = Math.round(Math.min(100, Math.max(0, base)));
+  });
+
+  return { health_score: healthScore, total_tests: allResults.length, successful_tests: successful,
+    failed_tests: allResults.length - successful, device_count: devices.length, problem_count: nProblems,
+    metrics, conn_success: { rate: connRate, score: connScore, weight: CONN_WEIGHT },
+    problem_diversity: { count: nProblems, score: probScore, weight: PROB_WEIGHT },
+    problems, devices, scoring_methodology: { sources: SOURCES } };
+}
+
+// ============================================================================
+// RENDER FUNCTIONS — unchanged from original
+// ============================================================================
+function scoreColor(s) { return s >= 70 ? 'var(--green)' : s >= 40 ? 'var(--yellow)' : 'var(--red)'; }
+function gradeClass(s) { return s >= 70 ? 'grade-good' : s >= 40 ? 'grade-fair' : 'grade-poor'; }
+function gradeText(s) { return s >= 70 ? 'Good' : s >= 40 ? 'Fair' : 'Poor'; }
+function fmt(v, u) { if (v == null) return 'N/A'; return (Math.abs(v) >= 10 ? Math.round(v) : v.toFixed(1)) + ' ' + u; }
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.querySelectorAll('.nav button').forEach(b => { b.classList.remove('active'); if (b.dataset.page === name) b.classList.add('active'); });
+  window.scrollTo(0, 0);
+}
+
+function renderDashboard() {
+  const d = DATA;
+  document.getElementById('stats-row').innerHTML = [
+    {v:d.total_tests,l:'Total Tests'},{v:d.successful_tests,l:'Passed'},{v:d.failed_tests,l:'Failed'},{v:d.device_count,l:'Devices'},{v:d.problem_count,l:'Problem Types'}
+  ].map(s => `<div class="stat"><div class="val">${s.v}</div><div class="lbl">${s.l}</div></div>`).join('');
+  const sc = d.health_score;
+  document.getElementById('gauge-card').innerHTML = `<canvas id="chart-gauge" width="200" height="120" style="margin:0 auto"></canvas>
+    <div class="gauge-score" style="color:${scoreColor(sc)}">${sc}</div><div class="gauge-label">Wi-Fi Health Score</div>
+    <div style="margin-top:8px"><a href="#" onclick="showPage('scoring');return false" style="font-size:13px">How is this calculated? →</a></div>`;
+  drawGauge(sc);
+  const allMetrics = [...d.metrics,
+    {name:'Connection Success',unit:'%',avg:d.conn_success.rate,score:d.conn_success.score,weight:d.conn_success.weight,key:'_conn'},
+    {name:'Problem Diversity',unit:'types',avg:d.problem_diversity.count,score:d.problem_diversity.score,weight:d.problem_diversity.weight,key:'_prob'}];
+  document.getElementById('metric-cards').innerHTML = allMetrics.map((m,i) => `
+    <div class="metric-card card" onclick="showMetricDetail(${i})"><h3>${m.name}</h3>
+      <div class="value">${m.avg!=null?(Math.abs(m.avg)>=10?Math.round(m.avg):m.avg.toFixed(1)):'N/A'}<span class="unit">${m.unit}</span></div>
+      <div class="score-bar"><div class="score-fill" style="width:${m.score}%;background:${scoreColor(m.score)}"></div></div>
+      <div class="meta"><span class="grade ${gradeClass(m.score)}">${gradeText(m.score)}</span><span>Score: ${Math.round(m.score)} • Weight: ${m.weight}%</span></div></div>`).join('');
+  renderCharts();
+}
+
+function drawGauge(score) {
+  const c = document.getElementById('chart-gauge'); if (!c) return;
+  const ctx = c.getContext('2d'), cx = 100, cy = 100, r = 80;
+  for (let i = 0; i < 100; i++) { const a = Math.PI+(i/100)*Math.PI, a2 = Math.PI+((i+1)/100)*Math.PI;
+    ctx.beginPath(); ctx.arc(cx,cy,r,a,a2); ctx.strokeStyle = i<33?'#ef4444':i<66?'#eab308':'#22c55e'; ctx.lineWidth=16; ctx.stroke(); }
+  const angle = Math.PI+(score/100)*Math.PI; ctx.beginPath(); ctx.moveTo(cx,cy);
+  ctx.lineTo(cx+Math.cos(angle)*(r-20),cy+Math.sin(angle)*(r-20)); ctx.strokeStyle='#e4e6ef'; ctx.lineWidth=3; ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx,cy,6,0,2*Math.PI); ctx.fillStyle='#e4e6ef'; ctx.fill();
+}
+
+function showMetricDetail(idx) {
+  const allMetrics = [...DATA.metrics,
+    {name:'Connection Success',unit:'%',avg:DATA.conn_success.rate,score:DATA.conn_success.score,weight:DATA.conn_success.weight,
+     description:'Percentage of Wi-Fi tests that passed all checks.',detail:'A test passes when the device successfully connects to the target SSID, obtains a DHCP address, and passes all configured network reachability tests.',
+     good:90,accept:70,direction:'higher',source:'Internal',source_url:'',values:[DATA.conn_success.rate],
+     why:'Low success rates often indicate profile misconfiguration or SSID availability issues rather than RF problems.',is_good:DATA.conn_success.score>=70},
+    {name:'Problem Diversity',unit:'types',avg:DATA.problem_diversity.count,score:DATA.problem_diversity.score,weight:DATA.problem_diversity.weight,
+     description:'Number of unique problem types encountered.',detail:'Each unique problem type costs 15 points. Ideally, an enterprise should see 0-2 unique problem types.',
+     good:2,accept:5,direction:'lower',source:'Internal',source_url:'',values:[DATA.problem_diversity.count],
+     why:'A high diversity of failures suggests systemic issues or misconfigured test profiles.',is_good:DATA.problem_diversity.score>=70}];
+  const m = allMetrics[idx], panel = document.getElementById('metric-detail');
+  const goodDir = m.direction==='higher'?'≥':'≤', poorDir = m.direction==='higher'?'<':'>';
+  panel.style.display = 'block';
+  panel.innerHTML = `<div class="detail-panel">
+    <button class="back-btn" onclick="document.getElementById('metric-detail').style.display='none'">← Back to cards</button>
+    <h2>${m.name} <span class="grade ${gradeClass(m.score)}">${gradeText(m.score)} — Score: ${Math.round(m.score)}/100</span></h2>
+    <p class="desc">${m.description||''}</p>
+    <div class="threshold-row">
+      <div class="threshold threshold-good"><b>${goodDir} ${m.good} ${m.unit}</b>Good — Full score</div>
+      <div class="threshold threshold-accept"><b>${m.accept} ${m.unit}</b>Acceptable — Partial score</div>
+      <div class="threshold threshold-poor"><b>${poorDir} ${m.accept} ${m.unit}</b>Poor — Low score</div>
+    </div>
+    ${m.avg!=null?`<div style="margin-bottom:12px"><b>Your average:</b> ${fmt(m.avg,m.unit)} &nbsp; <b>Samples:</b> ${m.count||(m.values||[]).length}</div>`:''}
+    ${m.min!=null?`<div style="margin-bottom:12px"><b>Range:</b> ${fmt(m.min,m.unit)} to ${fmt(m.max,m.unit)}</div>`:''}
+    ${m.why?`<div style="margin-bottom:16px;padding:14px 16px;border-radius:8px;font-size:14px;line-height:1.6;${m.is_good?'background:rgba(34,197,94,.08);border-left:4px solid var(--green)':'background:rgba(239,68,68,.08);border-left:4px solid var(--red)'}">
+      <b style="display:block;margin-bottom:4px">${m.is_good?'✅ Why this is good':'⚠️ Why this needs attention'}</b>${m.why}</div>`:''}
+    <div style="margin-bottom:16px;font-size:14px;line-height:1.6">${m.detail||''}</div>
+    ${(m.learn_more&&m.learn_more.length)?`<div style="margin-top:12px;padding:12px 16px;background:var(--surface2);border-radius:8px">
+      <b style="display:block;margin-bottom:8px;font-size:13px;color:var(--text2)">Learn More</b>
+      ${m.learn_more.map(l=>`<div style="margin-bottom:6px"><a href="${l.url}" target="_blank" style="font-size:13px">${l.title} →</a></div>`).join('')}</div>`
+      :(m.source?`<div><span class="tag">Source</span> <a href="${m.source_url}" target="_blank">${m.source}</a></div>`:'')}
+    ${(m.values&&m.values.length>1)?`<div style="margin-top:16px"><canvas id="chart-metric-detail" height="80"></canvas></div>`:''}</div>`;
+  if (m.values&&m.values.length>1) {
+    new Chart(document.getElementById('chart-metric-detail'),{type:'bar',
+      data:{labels:m.values.map((_,i)=>'Test '+(i+1)),datasets:[{data:m.values,backgroundColor:m.values.map(v=>{
+        return m.direction==='higher'?(v>=m.good?'#22c55e':v>=m.accept?'#eab308':'#ef4444'):(v<=m.good?'#22c55e':v<=m.accept?'#eab308':'#ef4444');
+      }),borderRadius:4}]},options:{plugins:{legend:{display:false}},scales:{y:{grid:{color:'#2e3345'},ticks:{color:'#9ba1b7'}},x:{grid:{display:false},ticks:{color:'#9ba1b7'}}}}});
+  }
+  panel.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function renderCharts() {
+  const d = DATA, co = {responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#9ba1b7',font:{size:11}}}},
+    scales:{x:{grid:{color:'#2e334522'},ticks:{color:'#9ba1b7'}},y:{grid:{color:'#2e334522'},ticks:{color:'#9ba1b7'}}}};
+  const rssi = d.metrics.find(m=>m.key==='linkSignalLevelMean')?.values||[];
+  if (rssi.length) { const bins=Array(15).fill(0),bMin=-90,bMax=-20,bW=(bMax-bMin)/15;
+    rssi.forEach(v=>{const i=Math.min(14,Math.max(0,Math.floor((v-bMin)/bW)));bins[i]++});
+    new Chart(document.getElementById('chart-rssi'),{type:'bar',data:{labels:bins.map((_,i)=>Math.round(bMin+i*bW)),datasets:[{label:'Test Count',data:bins,backgroundColor:bins.map((_,i)=>{const v=bMin+i*bW;return v>=-65?'#22c55e88':v>=-72?'#eab30888':'#ef444488'}),borderRadius:4}]},options:{...co}}); }
+  const sd=[]; d.devices.forEach(dev=>dev.tests.forEach(t=>{if(t.snr!=null&&t.retry!=null&&typeof t.snr==='number')sd.push({x:t.snr,y:t.retry,color:t.color})}));
+  new Chart(document.getElementById('chart-scatter'),{type:'scatter',data:{datasets:[
+    {label:'Pass',data:sd.filter(s=>s.color==='green').map(s=>({x:s.x,y:s.y})),backgroundColor:'#22c55e',pointRadius:6},
+    {label:'Fail',data:sd.filter(s=>s.color!=='green').map(s=>({x:s.x,y:s.y})),backgroundColor:'#ef4444',pointRadius:6}]},
+    options:{...co,scales:{...co.scales,x:{...co.scales.x,title:{display:true,text:'SNR (dB)',color:'#9ba1b7'}},y:{...co.scales.y,title:{display:true,text:'Retry Rate (%)',color:'#9ba1b7'}}}}});
+  const probs=d.problems.slice(0,8);
+  new Chart(document.getElementById('chart-problems'),{type:'bar',data:{labels:probs.map(p=>p[0].substring(0,30)),datasets:[{data:probs.map(p=>p[1]),backgroundColor:'#ef4444aa',borderRadius:4}]},options:{...co,indexAxis:'y',plugins:{legend:{display:false}}}});
+}
+
+function renderDevices() {
+  const d=DATA, devs=[...d.devices].sort((a,b)=>b.score-a.score);
+  new Chart(document.getElementById('chart-device-scores'),{type:'bar',data:{labels:devs.map(d=>d.name.replace("Rocky's ",'')),datasets:[{data:devs.map(d=>d.score),backgroundColor:devs.map(d=>d.score>=70?'#22c55e':d.score>=40?'#eab308':'#ef4444'),borderRadius:6}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{max:100,grid:{color:'#2e334522'},ticks:{color:'#9ba1b7'}},y:{grid:{display:false},ticks:{color:'#9ba1b7',font:{size:10}}}}}});
+  new Chart(document.getElementById('chart-device-passfail'),{type:'bar',data:{labels:devs.map(d=>d.name.replace("Rocky's ",'')),datasets:[{label:'Pass',data:devs.map(d=>d.pass),backgroundColor:'#22c55e',borderRadius:4},{label:'Fail',data:devs.map(d=>d.fail),backgroundColor:'#ef4444',borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{labels:{color:'#9ba1b7'}}},scales:{x:{stacked:true,grid:{color:'#2e334522'},ticks:{color:'#9ba1b7'}},y:{stacked:true,grid:{display:false},ticks:{color:'#9ba1b7',font:{size:10}}}}}});
+  const tbody=document.querySelector('#device-table tbody'); tbody.innerHTML='';
+  d.devices.forEach(dev=>dev.tests.forEach(t=>{
+    const date=new Date(t.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const dot=`<span class="dot dot-${t.color}"></span>${t.color==='green'?'Pass':'Fail'}`;
+    const rssi=typeof t.rssi==='number'?t.rssi+' dBm':'--', snr=typeof t.snr==='number'?t.snr+' dB':'--';
+    const retry=typeof t.retry==='number'?t.retry+'%':'--';
+    const phy=typeof t.phyRate==='number'?Math.round(t.phyRate)+' Mbps':(typeof t.phyRate==='string'&&t.phyRate!=='--'?t.phyRate+' Mbps':'--');
+    const probs=t.problems.length?t.problems.map(p=>`<span class="tag">${p.split(' (')[0]}</span>`).join(''):'<span style="color:var(--text2)">None</span>';
+    tbody.innerHTML+=`<tr><td><b>${dev.name.replace("Rocky's ",'')}</b></td><td>${date}</td><td>${dot}</td><td>${t.profile}</td><td>${rssi}</td><td>${snr}</td><td>${retry}</td><td>${phy}</td><td>${probs}</td><td><a href="${LINK_LIVE_BASE}${t.id}" target="_blank" class="link-live-link">View</a></td></tr>`;
+  }));
+}
+
+function renderScoring() {
+  const d=DATA; let formula='Health Score = (';
+  formula+=d.metrics.map(m=>`${m.name}_score × ${m.weight}%`).join('\n             + ');
+  formula+=`\n             + Connection_Success_score × ${d.conn_success.weight}%\n             + Problem_Diversity_score × ${d.problem_diversity.weight}%) / 100`;
+  document.getElementById('scoring-formula').textContent=formula;
+  const container=document.getElementById('scoring-metrics');
+  d.metrics.forEach(m=>{
+    const goodDir=m.direction==='higher'?'≥':'≤',poorDir=m.direction==='higher'?'<':'>';
+    const whyH=m.why?`<div style="margin:10px 0;padding:10px 12px;border-radius:6px;font-size:12px;line-height:1.5;${m.is_good?'background:rgba(34,197,94,.06);border-left:3px solid var(--green)':'background:rgba(239,68,68,.06);border-left:3px solid var(--red)'}">
+      <b>${m.is_good?'✅ Why this is good:':'⚠️ Why this needs attention:'}</b> ${m.why}</div>`:'';
+    const linksH=(m.learn_more&&m.learn_more.length)?`<div style="font-size:12px;margin-top:8px">${m.learn_more.map(l=>`<a href="${l.url}" target="_blank" style="margin-right:12px">${l.title} →</a>`).join('')}</div>`
+      :`<div style="font-size:12px;margin-top:8px"><span class="tag">Source</span> <a href="${m.source_url}" target="_blank">${m.source}</a></div>`;
+    container.innerHTML+=`<div style="margin-bottom:16px;padding:16px;background:var(--surface2);border-radius:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>${m.name}</b><span class="grade ${gradeClass(m.score)}">${gradeText(m.score)} — ${Math.round(m.score)}/100</span></div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:8px">${m.description}</div>
+      <div style="display:flex;gap:8px;font-size:12px;flex-wrap:wrap"><span style="color:var(--green)">Good: ${goodDir} ${m.good} ${m.unit}</span><span style="color:var(--yellow)">Acceptable: ${m.accept} ${m.unit}</span><span style="color:var(--red)">Poor: ${poorDir} ${m.accept} ${m.unit}</span><span style="margin-left:auto;color:var(--text2)">Weight: ${m.weight}%</span></div>
+      ${whyH}${linksH}</div>`;
+  });
+  const sl=document.getElementById('source-list');
+  d.scoring_methodology.sources.forEach(s=>{sl.innerHTML+=`<li><a href="${s.url}" target="_blank">${s.name}</a></li>`});
+}
+
+function renderProblems() {
+  const d=DATA;
+  new Chart(document.getElementById('chart-problems2'),{type:'bar',data:{labels:d.problems.map(p=>p[0].substring(0,35)),datasets:[{data:d.problems.map(p=>p[1]),backgroundColor:'#ef4444aa',borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:'#2e334522'},ticks:{color:'#9ba1b7'}},y:{grid:{display:false},ticks:{color:'#9ba1b7',font:{size:11}}}}}});
+  const dp={}; d.devices.forEach(dev=>{const t=Object.values(dev.problems||{}).reduce((a,b)=>a+b,0);if(t>0)dp[dev.name.replace("Rocky's ",'')]=t});
+  const sorted=Object.entries(dp).sort((a,b)=>b[1]-a[1]);
+  new Chart(document.getElementById('chart-problems-device'),{type:'doughnut',data:{labels:sorted.map(s=>s[0]),datasets:[{data:sorted.map(s=>s[1]),backgroundColor:['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#8b5cf6','#ec4899']}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#9ba1b7',font:{size:11},padding:12,usePointStyle:true}}}}});
+  const tbody=document.querySelector('#problem-table tbody'),pDevs={};
+  d.devices.forEach(dev=>Object.keys(dev.problems||{}).forEach(p=>{if(!pDevs[p])pDevs[p]=[];pDevs[p].push(dev.name.replace("Rocky's ",''))}));
+  d.problems.forEach(([name,count])=>{const devs=(pDevs[name]||[]).map(d=>`<span class="tag">${d}</span>`).join('');
+    tbody.innerHTML+=`<tr><td><b>${name}</b></td><td>${count}</td><td>${devs}</td></tr>`});
+}
+</script>
+</body>
+</html>
