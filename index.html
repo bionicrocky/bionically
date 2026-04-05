@@ -553,9 +553,16 @@ function showPage(name) {
 
 function renderDashboard() {
   const d = DATA;
+  // Build flat test list for stat card clicks
+  const allTestsFlat = []; d.devices.forEach(dev=>dev.tests.forEach(t=>allTestsFlat.push({...t,device:dev.name})));
+  window._statTests = allTestsFlat;
   document.getElementById('stats-row').innerHTML = [
-    {v:d.total_tests,l:'Total Tests'},{v:d.successful_tests,l:'Passed'},{v:d.failed_tests,l:'Failed'},{v:d.device_count,l:'Devices'},{v:d.problem_count,l:'Problem Types'}
-  ].map(s => `<div class="stat"><div class="val">${s.v}</div><div class="lbl">${s.l}</div></div>`).join('');
+    {v:d.total_tests,l:'Total Tests',click:`showTestListPopup('All Tests',window._statTests)`},
+    {v:d.successful_tests,l:'Passed',click:`showTestListPopup('Passed Tests',window._statTests.filter(t=>t.color==='green'))`},
+    {v:d.failed_tests,l:'Failed',click:`showTestListPopup('Failed Tests',window._statTests.filter(t=>t.color!=='green'))`},
+    {v:d.device_count,l:'Devices',click:`showPage('devices')`},
+    {v:d.problem_count,l:'Problem Types',click:`showPage('problems')`},
+  ].map(s => `<div class="stat" style="cursor:pointer" onclick="${s.click}"><div class="val">${s.v}</div><div class="lbl">${s.l}</div></div>`).join('');
   const sc = d.health_score;
   document.getElementById('gauge-card').innerHTML = `<canvas id="chart-gauge" width="200" height="120" style="margin:0 auto"></canvas>
     <div class="gauge-score" style="color:${scoreColor(sc)}">${sc}</div><div class="gauge-label">Wi-Fi Health Score</div>
