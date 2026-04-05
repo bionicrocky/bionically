@@ -289,9 +289,11 @@ const LINK_LIVE_BASE = 'https://link-live.com/results/';
 // ============================================================================
 let _token = null;  // lives only in memory, destroyed on close/refresh
 
+const PROXY = 'https://bionically-proxy.notrocky.workers.dev/proxy/';
+
 async function llLogin(email, password) {
   const creds = btoa(email + ':' + password);
-  const res = await fetch('https://id.link-live.com/v2/auth/login', {
+  const res = await fetch(PROXY + 'https://id.link-live.com/v2/auth/login', {
     method: 'POST',
     headers: { 'Authorization': 'Basic ' + creds, 'Content-Type': 'application/json' },
     body: JSON.stringify({ claims: { app: '3pGv3iSAICObaFX7EjdojO' } })
@@ -304,7 +306,7 @@ async function llLogin(email, password) {
 }
 
 async function llGet(path) {
-  const res = await fetch('https://link-live.com/v1/admin' + path, {
+  const res = await fetch(PROXY + 'https://link-live.com/v1/admin' + path, {
     headers: { 'Authorization': 'Access ' + _token, 'Content-Type': 'application/json' }
   });
   if (!res.ok) throw new Error('API error: ' + res.status);
