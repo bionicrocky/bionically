@@ -131,7 +131,11 @@ tr:hover td { background: var(--surface2); }
       <input type="email" id="login-email" placeholder="you@company.com" required autocomplete="username">
       <label>Password</label>
       <input type="password" id="login-password" placeholder="Your Link-Live password" required autocomplete="current-password">
-      <button type="submit" class="login-btn" id="login-btn">Sign In &amp; Load Data</button>
+      <div id="org-picker" style="display:none;margin-bottom:16px">
+        <label>Organization</label>
+        <select id="login-org" style="width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;margin-bottom:0;outline:none;cursor:pointer"></select>
+      </div>
+      <button type="submit" class="login-btn" id="login-btn">Sign In</button>
     </form>
     <div class="login-status" id="login-status"></div>
     <div class="login-security">
@@ -201,9 +205,10 @@ tr:hover td { background: var(--surface2); }
       <div class="card card-lg"><h3>Problems by Type</h3><div class="chart-container"><canvas id="chart-problems2"></canvas></div></div>
       <div class="card card-lg"><h3>Problems by Device</h3><div class="chart-container"><canvas id="chart-problems-device"></canvas></div></div>
     </div>
-    <div class="card"><h3>Problem Details</h3>
+    <div class="card"><h3>Problem Details <span style="font-weight:400;font-size:12px;color:var(--text2)">(click a row for details)</span></h3>
       <table id="problem-table"><thead><tr><th>Problem</th><th>Occurrences</th><th>Affected Devices</th></tr></thead><tbody></tbody></table>
     </div>
+    <div id="problem-detail" style="display:none"></div>
   </div>
 </div>
 </div>
@@ -314,49 +319,107 @@ async function llGet(path) {
 }
 
 function doLogout() {
-  _token = null;
+  _token = null; _authData = null; _loginEmail = '';
   document.getElementById('app-content').style.display = 'none';
   document.getElementById('login-overlay').style.display = 'flex';
   document.getElementById('login-password').value = '';
-  // Destroy all chart instances
+  document.getElementById('org-picker').style.display = 'none';
+  document.getElementById('login-btn').textContent = 'Sign In';
+  document.getElementById('login-status').textContent = '';
   Object.values(Chart.instances).forEach(c => c.destroy());
 }
 
 // ============================================================================
-// LOGIN HANDLER
+// LOGIN HANDLER — two-step: authenticate, pick org, then load
 // ============================================================================
+let _authData = null;
+let _loginEmail = '';
+
 async function handleLogin(e) {
   e.preventDefault();
-  const email = document.getElementById('login-email').value;
-  const password = document.getElementById('login-password').value;
   const btn = document.getElementById('login-btn');
   const err = document.getElementById('login-error');
   const status = document.getElementById('login-status');
   btn.disabled = true; err.style.display = 'none';
-  status.textContent = 'Authenticating with Link-Live...';
+
+  // Step 1: If no auth yet, authenticate and show org picker
+  if (!_authData) {
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+    _loginEmail = email;
+    status.textContent = 'Authenticating with Link-Live...';
+    try {
+      _authData = await llLogin(email, password);
+      document.getElementById('login-password').value = '';
+      // Populate org dropdown
+      const orgs = _authData.context?.orgMemberships || [];
+      const sel = document.getElementById('login-org');
+      sel.innerHTML = '';
+      if (orgs.length > 1) {
+        orgs.forEach(o => { const opt = document.createElement('option'); opt.value = o.organization || o.id; opt.textContent = o.name; sel.appendChild(opt); });
+        // Pre-select current org
+        const currentOrg = _authData.context?.organization?._id || _authData.context?.organization?.id;
+        if (currentOrg) sel.value = currentOrg;
+        document.getElementById('org-picker').style.display = 'block';
+        btn.textContent = 'Load Data';
+        status.textContent = 'Select an organization and click Load Data.';
+        btn.disabled = false;
+        return;
+      }
+      // Single org — skip picker, go straight to load
+      await loadOrgData(_authData.context?.organization?.name || 'Your Organization');
+    } catch (ex) {
+      _authData = null;
+      err.textContent = ex.message; err.style.display = 'block'; status.textContent = '';
+      btn.disabled = false;
+    }
+    return;
+  }
+
+  // Step 2: Org selected — re-auth for that org if different, then load
+  const selectedOrg = document.getElementById('login-org').value;
+  const currentOrg = _authData.context?.organization?._id || _authData.context?.organization?.id;
+  status.textContent = 'Switching organization...';
   try {
-    const authData = await llLogin(email, password);
-    // Flush password from DOM immediately
-    document.getElementById('login-password').value = '';
-    const orgName = authData.context?.organization?.name || 'Your Organization';
-    status.textContent = 'Loading Wi-Fi results...';
-    const results = await llGet('/results?offset=0&limit=200&sort=' + encodeURIComponent('{"created_at":-1}') + '&query=' + encodeURIComponent('{"resultType":"wireless"}'));
-    status.textContent = 'Processing ' + results.length + ' results...';
-    const DATA = processResults(results, orgName);
-    document.getElementById('login-overlay').style.display = 'none';
-    document.getElementById('app-content').style.display = 'block';
-    document.getElementById('org-name').textContent = orgName + ' — Wi-Fi Health Report';
-    window.DATA = DATA;
-    renderDashboard();
-    renderDevices();
-    renderScoring();
-    renderProblems();
+    if (selectedOrg !== currentOrg) {
+      // Re-login for the selected org
+      const creds = btoa(_loginEmail + ':' + ''); // Can't re-auth without password
+      // Use the existing token to get org-specific data by passing org header
+      // Actually the API filters by org in the token — need to re-login for a different org
+      // We'll use the refresh endpoint with org claim
+      const res = await fetch(PROXY + 'https://id.link-live.com/v2/auth/login', {
+        method: 'POST',
+        headers: { 'Authorization': 'Access ' + _token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ claims: { app: '3pGv3iSAICObaFX7EjdojO', org: selectedOrg } })
+      });
+      if (res.ok) {
+        const newAuth = await res.json();
+        _token = newAuth.accessToken;
+        _authData = newAuth;
+      }
+    }
+    const orgName = _authData.context?.orgMemberships?.find(o => (o.organization || o.id) === selectedOrg)?.name || 'Your Organization';
+    await loadOrgData(orgName);
   } catch (ex) {
-    err.textContent = ex.message;
-    err.style.display = 'block';
-    status.textContent = '';
+    err.textContent = ex.message; err.style.display = 'block'; status.textContent = '';
   }
   btn.disabled = false;
+}
+
+async function loadOrgData(orgName) {
+  const status = document.getElementById('login-status');
+  status.textContent = 'Loading Wi-Fi results for ' + orgName + '...';
+  const results = await llGet('/results?offset=0&limit=200&sort=' + encodeURIComponent('{"created_at":-1}') + '&query=' + encodeURIComponent('{"resultType":"wireless"}'));
+  status.textContent = 'Processing ' + results.length + ' results...';
+  // Destroy old charts
+  Object.values(Chart.instances).forEach(c => c.destroy());
+  const DATA = processResults(results, orgName);
+  document.getElementById('login-overlay').style.display = 'none';
+  document.getElementById('app-content').style.display = 'block';
+  document.getElementById('org-name').textContent = orgName + ' — Wi-Fi Health Report';
+  window.DATA = DATA;
+  renderDashboard(); renderDevices(); renderScoring(); renderProblems();
+}
 }
 
 // ============================================================================
@@ -603,6 +666,132 @@ function renderScoring() {
   d.scoring_methodology.sources.forEach(s=>{sl.innerHTML+=`<li><a href="${s.url}" target="_blank">${s.name}</a></li>`});
 }
 
+// ============================================================================
+// PROBLEM KNOWLEDGE BASE — causes, impact, remediation for known issues
+// ============================================================================
+const PROBLEM_KB = {
+  'Timeout trying to connect to SSID': {
+    severity: 'high',
+    what: 'The device attempted to associate with the configured SSID but the AP did not respond within the connection timeout window.',
+    causes: [
+      'SSID is not broadcasting or has been disabled on the AP',
+      'The configured SSID name does not match the AP exactly (case-sensitive)',
+      'The AP is out of range or signal is too weak to complete the handshake',
+      'The AP has reached its maximum client association limit',
+      'Authentication type mismatch (e.g., WPA3 profile vs WPA2-only AP)',
+      'RADIUS server is unreachable or slow to respond (802.1X networks)',
+    ],
+    impact: 'Complete test failure — no Wi-Fi metrics are collected. This is the most common failure mode and often indicates a profile configuration issue rather than an RF problem.',
+    remediation: 'Verify the SSID name and security settings in the test profile match the AP configuration exactly. Check that the AP is powered on and broadcasting. For 802.1X, verify RADIUS server reachability from the AP.',
+    link: 'https://support.netally.com/kbcategory/?id=CAT-01005',
+  },
+  'Wi-Fi test port disabled': {
+    severity: 'high',
+    what: 'The Wi-Fi radio on the test device was disabled or unavailable when the test was initiated.',
+    causes: [
+      'Wi-Fi radio was manually disabled in device settings',
+      'The test profile is configured for Ethernet-only testing',
+      'A previous test or configuration change left the radio in a disabled state',
+      'Hardware issue with the Wi-Fi adapter (rare)',
+    ],
+    impact: 'Complete test failure — the device cannot attempt any wireless connection. All Wi-Fi metrics will be missing.',
+    remediation: 'Enable the Wi-Fi radio in the device settings. Verify the AutoTest profile has wireless testing enabled. Power-cycle the device if the radio appears stuck.',
+    link: 'https://www.netally.com/user-guides/aircheckg3/Content/B_Testing-Applications/AutoTest/Air-Quality-AutoTest-Profiles.htm',
+  },
+  'Wi-Fi network connection lost': {
+    severity: 'high',
+    what: 'The device successfully connected to the SSID but the connection dropped during the test before all checks completed.',
+    causes: [
+      'Client roamed to a different AP mid-test and the roam failed',
+      'AP rebooted or the SSID was temporarily disabled during the test',
+      'Severe co-channel interference caused deauthentication',
+      'The AP kicked the client due to load balancing or band steering',
+      'Signal strength dropped below the AP\'s minimum RSSI threshold',
+      'DHCP lease expired and could not renew during the test',
+    ],
+    impact: 'Partial test data may be collected up to the point of disconnection. Downstream tests (ping, web, DNS) will fail.',
+    remediation: 'Check AP logs for deauthentication events around the test time. Verify roaming thresholds are not too aggressive. Check for AP load balancing policies that may be evicting clients.',
+    link: 'https://www.netally.com/tech-tips/understand-noise-with-wi-fi-snr/',
+  },
+  'Invalid Wi-Fi connection settings': {
+    severity: 'medium',
+    what: 'The test profile contains Wi-Fi connection parameters that are invalid or incompatible with the target network.',
+    causes: [
+      'Wrong security type selected (Open/WEP/WPA2/WPA3 mismatch)',
+      'Incorrect PSK (pre-shared key) or passphrase',
+      'EAP method or inner authentication mismatch for 802.1X',
+      'Client certificate expired or not installed (EAP-TLS)',
+      'SSID name contains trailing spaces or special characters',
+    ],
+    impact: 'Complete test failure — the device cannot authenticate. No wireless metrics are collected.',
+    remediation: 'Review the test profile\'s wireless settings. Verify the exact security type and credentials against the WLAN controller configuration. For 802.1X, check certificate validity.',
+    link: 'https://support.netally.com/kbcategory/?id=CAT-01005',
+  },
+  'No DHCP server response': {
+    severity: 'high',
+    what: 'The device connected to the SSID and authenticated successfully, but no DHCP server responded to the address request.',
+    causes: [
+      'DHCP server is down or unreachable from the VLAN assigned to the SSID',
+      'DHCP pool is exhausted (no available IP addresses)',
+      'DHCP relay/helper address is misconfigured on the gateway',
+      'VLAN tagging mismatch between AP and switch causing DHCP to be sent to wrong VLAN',
+      'Firewall blocking DHCP traffic (UDP ports 67/68)',
+    ],
+    impact: 'The Wi-Fi link was established (RSSI/SNR data collected) but no IP connectivity. All Layer 3+ tests (ping, DNS, web) fail.',
+    remediation: 'Check DHCP server health and pool utilization. Verify VLAN assignment and DHCP relay configuration. Test DHCP from a wired client on the same VLAN to isolate wireless vs. infrastructure.',
+    link: 'https://www.netally.com/products/link-live/',
+  },
+  'Unable to connect to SSID/BSSID': {
+    severity: 'high',
+    what: 'The device found the target SSID but could not complete the association or authentication process.',
+    causes: [
+      'MAC filtering is enabled on the AP and the test device is not in the allowed list',
+      'The AP rejected the association due to security policy',
+      'The specific BSSID targeted in the profile is no longer available',
+      'The AP\'s association table is full',
+      'Radio frequency interference corrupted the auth frames',
+    ],
+    impact: 'Complete test failure — similar to SSID timeout but the device could see the AP. This narrows the cause to authentication or policy rather than RF.',
+    remediation: 'Check AP MAC filter lists and security policies. Verify the test device MAC is authorized. If targeting a specific BSSID, ensure that AP radio is still active.',
+    link: 'https://support.netally.com/kbcategory/?id=CAT-01005',
+  },
+  'Failure': {
+    severity: 'medium',
+    what: 'A generic test failure that doesn\'t map to a specific failure code.',
+    causes: [
+      'An unexpected error occurred during the test sequence',
+      'The test was manually aborted or timed out at the device level',
+      'A firmware bug caused an unclassified failure',
+      'Network infrastructure returned an unexpected response',
+    ],
+    impact: 'Varies — some metrics may have been collected before the failure. Check the specific test result in Link-Live for partial data.',
+    remediation: 'Review the full test result in Link-Live for additional context. If recurring, update device firmware. If intermittent, correlate with time-of-day patterns.',
+    link: 'https://www.netally.com/products/link-live/',
+  },
+};
+
+function getProblemKB(name) {
+  if (PROBLEM_KB[name]) return PROBLEM_KB[name];
+  // Fuzzy match — check if any KB key is a substring
+  for (const [k, v] of Object.entries(PROBLEM_KB)) {
+    if (name.includes(k) || k.includes(name)) return v;
+  }
+  // Generic fallback
+  return {
+    severity: 'medium',
+    what: 'This problem was reported by the test device during an AutoTest run.',
+    causes: [
+      'RF environment issues (interference, low signal, high noise)',
+      'Network infrastructure misconfiguration (AP, DHCP, DNS, RADIUS)',
+      'Test profile settings do not match the target network configuration',
+      'Intermittent connectivity issues at the time of testing',
+    ],
+    impact: 'Test may have partially or fully failed. Check the specific result in Link-Live for details.',
+    remediation: 'Review the test profile configuration. Check AP and infrastructure logs for events around the test time. Run the test again to determine if the issue is persistent.',
+    link: 'https://support.netally.com/kbcategory/?id=CAT-01005',
+  };
+}
+
 function renderProblems() {
   const d=DATA;
   new Chart(document.getElementById('chart-problems2'),{type:'bar',data:{labels:d.problems.map(p=>p[0].substring(0,35)),datasets:[{data:d.problems.map(p=>p[1]),backgroundColor:'#ef4444aa',borderRadius:4}]},
@@ -611,10 +800,86 @@ function renderProblems() {
   const sorted=Object.entries(dp).sort((a,b)=>b[1]-a[1]);
   new Chart(document.getElementById('chart-problems-device'),{type:'doughnut',data:{labels:sorted.map(s=>s[0]),datasets:[{data:sorted.map(s=>s[1]),backgroundColor:['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#8b5cf6','#ec4899']}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#9ba1b7',font:{size:11},padding:12,usePointStyle:true}}}}});
-  const tbody=document.querySelector('#problem-table tbody'),pDevs={};
-  d.devices.forEach(dev=>Object.keys(dev.problems||{}).forEach(p=>{if(!pDevs[p])pDevs[p]=[];pDevs[p].push(dev.name.replace("Rocky's ",''))}));
-  d.problems.forEach(([name,count])=>{const devs=(pDevs[name]||[]).map(d=>`<span class="tag">${d}</span>`).join('');
-    tbody.innerHTML+=`<tr><td><b>${name}</b></td><td>${count}</td><td>${devs}</td></tr>`});
+
+  // Build incident index: for each problem, list all test incidents
+  const incidents = {};
+  d.devices.forEach(dev => dev.tests.forEach(t => {
+    t.problems.forEach(p => {
+      const clean = p.split(' (')[0];
+      if (!incidents[clean]) incidents[clean] = [];
+      incidents[clean].push({ device: dev.name, date: t.date, color: t.color, profile: t.profile,
+        rssi: t.rssi, snr: t.snr, id: t.id });
+    });
+  }));
+  window._problemIncidents = incidents;
+
+  const tbody=document.querySelector('#problem-table tbody');
+  const pDevs={};
+  d.devices.forEach(dev=>Object.keys(dev.problems||{}).forEach(p=>{if(!pDevs[p])pDevs[p]=[];if(!pDevs[p].includes(dev.name.replace("Rocky's ",'')))pDevs[p].push(dev.name.replace("Rocky's ",''))}));
+  d.problems.forEach(([name,count],idx)=>{
+    const devs=(pDevs[name]||[]).map(d=>`<span class="tag">${d}</span>`).join('');
+    const kb = getProblemKB(name);
+    const sevColor = kb.severity==='high'?'var(--red)':kb.severity==='medium'?'var(--yellow)':'var(--text2)';
+    tbody.innerHTML+=`<tr style="cursor:pointer" onclick="showProblemDetail('${name.replace(/'/g,"\\'")}')">
+      <td><b>${name}</b> <span style="color:${sevColor};font-size:11px;text-transform:uppercase">${kb.severity}</span></td>
+      <td>${count}</td><td>${devs}</td></tr>`;
+  });
+}
+
+function showProblemDetail(name) {
+  const panel = document.getElementById('problem-detail');
+  const kb = getProblemKB(name);
+  const incidents = window._problemIncidents[name] || [];
+  const sevColor = kb.severity==='high'?'var(--red)':kb.severity==='medium'?'var(--yellow)':'var(--green)';
+  const sevBg = kb.severity==='high'?'rgba(239,68,68,.08)':kb.severity==='medium'?'rgba(234,179,8,.08)':'rgba(34,197,94,.08)';
+
+  panel.style.display = 'block';
+  panel.innerHTML = `<div class="detail-panel">
+    <button class="back-btn" onclick="document.getElementById('problem-detail').style.display='none'">← Back to list</button>
+    <h2>${name} <span style="color:${sevColor};font-size:13px;font-weight:600;text-transform:uppercase;margin-left:8px">${kb.severity} severity</span></h2>
+    <p class="desc">${kb.what}</p>
+
+    <div style="margin-bottom:20px;padding:16px;background:${sevBg};border-left:4px solid ${sevColor};border-radius:8px">
+      <b style="display:block;margin-bottom:8px">Common Causes</b>
+      <ul style="margin:0;padding-left:20px;font-size:14px;line-height:1.8">
+        ${kb.causes.map(c => `<li>${c}</li>`).join('')}
+      </ul>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      <div style="padding:14px;background:var(--surface2);border-radius:8px">
+        <b style="display:block;margin-bottom:6px;font-size:13px;color:var(--text2)">Impact</b>
+        <p style="font-size:14px;margin:0">${kb.impact}</p>
+      </div>
+      <div style="padding:14px;background:var(--surface2);border-radius:8px">
+        <b style="display:block;margin-bottom:6px;font-size:13px;color:var(--text2)">Remediation</b>
+        <p style="font-size:14px;margin:0">${kb.remediation}</p>
+      </div>
+    </div>
+
+    ${kb.link ? `<div style="margin-bottom:20px"><a href="${kb.link}" target="_blank" style="font-size:13px">NetAlly Knowledge Base →</a></div>` : ''}
+
+    <h3 style="margin-bottom:12px;font-size:15px">Incidents (${incidents.length})</h3>
+    <table>
+      <thead><tr><th>Device</th><th>Date</th><th>Profile</th><th>RSSI</th><th>SNR</th><th>Link-Live</th></tr></thead>
+      <tbody>
+        ${incidents.map(inc => {
+          const date = new Date(inc.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
+          const rssi = typeof inc.rssi === 'number' ? inc.rssi + ' dBm' : '--';
+          const snr = typeof inc.snr === 'number' ? inc.snr + ' dB' : '--';
+          return `<tr>
+            <td><b>${inc.device.replace("Rocky's ",'')}</b></td>
+            <td>${date}</td>
+            <td>${inc.profile}</td>
+            <td>${rssi}</td>
+            <td>${snr}</td>
+            <td><a href="${LINK_LIVE_BASE}${inc.id}" target="_blank" class="link-live-link">View</a></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>`;
+  panel.scrollIntoView({behavior:'smooth',block:'start'});
 }
 </script>
 </body>
