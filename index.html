@@ -145,9 +145,10 @@ canvas { cursor: pointer; }
 #rpt-preview-content p { margin:0 0 12px }
 #rpt-preview-content ul { margin:0 0 12px;padding-left:24px }
 #rpt-preview-content li { margin:0 0 4px }
-#rpt-preview-content table { width:100%;border-collapse:collapse;font-size:12px;margin:12px 0;font-family:-apple-system,sans-serif }
+#rpt-preview-content table { width:100%;border-collapse:collapse;font-size:12px;margin:12px 0;font-family:-apple-system,sans-serif;page-break-inside:avoid }
 #rpt-preview-content th { background:#f5f5f5;padding:8px 10px;text-align:left;border:1px solid #ddd;font-weight:600;font-size:11px;text-transform:uppercase }
 #rpt-preview-content td { padding:6px 10px;border:1px solid #eee }
+#rpt-preview-content tr { page-break-inside:avoid }
 #rpt-preview-content .rpt-metric-box { display:inline-block;padding:8px 16px;background:#f8f9fa;border:1px solid #e0e0e0;border-radius:8px;margin:4px;text-align:center;min-width:120px }
 #rpt-preview-content .rpt-metric-box .val { font-size:22px;font-weight:700;font-family:-apple-system,sans-serif }
 #rpt-preview-content .rpt-metric-box .lbl { font-size:10px;color:#666;text-transform:uppercase }
@@ -316,7 +317,9 @@ canvas { cursor: pointer; }
           <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Your Company</label>
           <input type="text" id="rpt-company" placeholder="Your Company Name" style="width:100%;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;outline:none;margin-bottom:8px">
           <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Customer / Site</label>
-          <input type="text" id="rpt-customer" placeholder="Customer or Site Name" style="width:100%;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;outline:none">
+          <input type="text" id="rpt-customer" placeholder="Customer or Site Name" style="width:100%;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;outline:none;margin-bottom:8px">
+          <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Surveyor</label>
+          <input type="text" id="rpt-surveyor" placeholder="Surveyor Name" style="width:100%;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;outline:none">
         </div>
         <div style="flex:0 0 160px">
           <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Report Date</label>
@@ -336,6 +339,8 @@ canvas { cursor: pointer; }
       <button onclick="previewReport()" style="padding:10px 24px;background:var(--accent);border:none;color:#fff;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">Preview &amp; Edit Report</button>
       <button onclick="downloadPDF()" style="padding:10px 24px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:14px;cursor:pointer">Download PDF</button>
       <button onclick="downloadCSV()" style="padding:10px 24px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:14px;cursor:pointer">Download CSV</button>
+      <button onclick="saveTemplate()" style="padding:10px 24px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:14px;cursor:pointer">Save Template</button>
+      <button onclick="loadTemplate()" style="padding:10px 24px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:14px;cursor:pointer">Load Template</button>
     </div>
   </div>
 </div>
@@ -343,17 +348,19 @@ canvas { cursor: pointer; }
 <!-- REPORT PREVIEW OVERLAY -->
 <div id="rpt-preview-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:300;overflow-y:auto;padding:20px">
   <div style="max-width:850px;margin:0 auto">
-    <div style="display:flex;gap:8px;margin-bottom:12px;position:sticky;top:0;z-index:2;background:rgba(0,0,0,.8);padding:8px;border-radius:8px;backdrop-filter:blur(8px)">
+    <div style="display:flex;gap:8px;margin-bottom:4px;position:sticky;top:0;z-index:2;background:rgba(0,0,0,.8);padding:8px;border-radius:8px 8px 0 0;backdrop-filter:blur(8px);flex-wrap:wrap">
       <button onclick="document.getElementById('rpt-preview-overlay').style.display='none'" style="padding:6px 16px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer;font-size:13px">Close</button>
       <button onclick="refreshTags()" style="padding:6px 16px;background:var(--accent);border:none;color:#fff;border-radius:6px;cursor:pointer;font-size:13px">Refresh Tags</button>
       <button onclick="downloadPDF()" style="padding:6px 16px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer;font-size:13px">Download PDF</button>
-      <span style="color:var(--text2);font-size:12px;align-self:center;margin-left:auto">Click any text to edit. Use &lt;#tag#&gt; for dynamic data.</span>
+      <button onclick="saveTemplate()" style="padding:6px 16px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer;font-size:13px">Save Template</button>
+      <button onclick="loadTemplate()" style="padding:6px 16px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer;font-size:13px">Load Template</button>
+      <span style="color:var(--text2);font-size:12px;align-self:center;margin-left:auto">Click any text to edit. Click a tag to insert it at cursor.</span>
+    </div>
+    <div style="position:sticky;top:52px;z-index:2;background:rgba(0,0,0,.8);padding:8px 8px 10px;border-radius:0 0 8px 8px;backdrop-filter:blur(8px);margin-bottom:12px">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Insert Tag (click to insert at cursor):</div>
+      <div id="rpt-tag-reference" style="display:flex;flex-wrap:wrap;gap:5px;font-family:monospace;font-size:11px"></div>
     </div>
     <div id="rpt-preview-content" style="background:#fff;color:#222;padding:60px 50px;border-radius:4px;font-family:Georgia,'Times New Roman',serif;font-size:14px;line-height:1.7;min-height:80vh"></div>
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin-top:12px">
-      <h4 style="color:var(--text);font-size:13px;margin-bottom:8px">Available Tags — use these anywhere in your report text</h4>
-      <div id="rpt-tag-reference" style="display:flex;flex-wrap:wrap;gap:6px;font-family:monospace;font-size:11px"></div>
-    </div>
   </div>
 </div>
 
@@ -1279,7 +1286,8 @@ function getTagValues() {
   return {
     company_name: document.getElementById('rpt-company')?.value || '<#company_name#>',
     customer_name: document.getElementById('rpt-customer')?.value || '<#customer_name#>',
-    report_date: document.getElementById('rpt-date')?.value || new Date().toISOString().split('T')[0],
+    report_date: formatUSDate(document.getElementById('rpt-date')?.value || new Date().toISOString().split('T')[0]),
+    surveyor_name: document.getElementById('rpt-surveyor')?.value || '<#surveyor_name#>',
     org_name: d.devices[0]?.name ? document.getElementById('org-name')?.textContent?.replace(' — Wi-Fi Health Report','') : '',
     health_score: d.health_score,
     health_grade: gradeText(d.health_score),
@@ -1319,13 +1327,73 @@ function refreshTags() {
   });
 }
 
+function formatUSDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  return (d.getMonth()+1) + '/' + d.getDate() + '/' + d.getFullYear();
+}
+
 function buildTagReference() {
-  const tags = ['company_name','customer_name','report_date','org_name','health_score','health_grade',
+  const tags = ['company_name','customer_name','surveyor_name','report_date','org_name','health_score','health_grade',
     'total_tests','passed_tests','failed_tests','device_count','problem_count','pass_rate',
     'avg_rssi','avg_snr','avg_noise','avg_retry','avg_phy_rate','avg_chan_util',
     'top_problem','worst_device','best_device','test_period','device_list','problem_list','recommendations'];
   const ref = document.getElementById('rpt-tag-reference');
-  if (ref) ref.innerHTML = tags.map(t => `<span style="padding:3px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;cursor:pointer;color:var(--accent2)" onclick="navigator.clipboard.writeText('<#${t}#>')" title="Click to copy">&lt;#${t}#&gt;</span>`).join('');
+  if (ref) ref.innerHTML = tags.map(t => `<span style="padding:3px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;cursor:pointer;color:var(--accent2)" onclick="insertTagAtCursor('${t}')" title="Click to insert at cursor">&lt;#${t}#&gt;</span>`).join('');
+}
+
+function insertTagAtCursor(tag) {
+  const sel = window.getSelection();
+  if (sel.rangeCount && document.getElementById('rpt-preview-content')?.contains(sel.anchorNode)) {
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(document.createTextNode('<#' + tag + '#>'));
+    range.collapse(false);
+  } else {
+    // No cursor in the doc — copy to clipboard as fallback
+    navigator.clipboard.writeText('<#' + tag + '#>');
+    const ref = document.getElementById('rpt-tag-reference');
+    const orig = ref?.querySelector(`[onclick*="${tag}"]`);
+    if (orig) { const prev = orig.style.background; orig.style.background = 'var(--accent)'; orig.style.color = '#fff'; setTimeout(()=>{orig.style.background=prev;orig.style.color='var(--accent2)'},500); }
+  }
+}
+
+function saveTemplate() {
+  const content = document.getElementById('rpt-preview-content');
+  const checks = {};
+  RPT_SECTIONS.forEach(s => { if (s.id) { const chk = document.getElementById('rpt-chk-' + s.id); if (chk) checks[s.id] = chk.checked; }});
+  const tpl = {
+    html: content?.innerHTML || '',
+    checks,
+    company: document.getElementById('rpt-company')?.value || '',
+    customer: document.getElementById('rpt-customer')?.value || '',
+    surveyor: document.getElementById('rpt-surveyor')?.value || '',
+    logo: _rptLogo,
+    savedAt: new Date().toISOString(),
+  };
+  localStorage.setItem('bionically_rpt_template', JSON.stringify(tpl));
+  alert('Template saved! It will be restored next time you open the report builder.');
+}
+
+function loadTemplate() {
+  const saved = localStorage.getItem('bionically_rpt_template');
+  if (!saved) { alert('No saved template found.'); return; }
+  const tpl = JSON.parse(saved);
+  // Restore checks
+  if (tpl.checks) { Object.entries(tpl.checks).forEach(([id, val]) => { const chk = document.getElementById('rpt-chk-' + id); if (chk) chk.checked = val; }); }
+  // Restore branding
+  if (tpl.company) document.getElementById('rpt-company').value = tpl.company;
+  if (tpl.customer) document.getElementById('rpt-customer').value = tpl.customer;
+  if (tpl.surveyor) document.getElementById('rpt-surveyor').value = tpl.surveyor;
+  if (tpl.logo) { _rptLogo = tpl.logo; document.getElementById('rpt-logo-preview').innerHTML = `<img src="${_rptLogo}" style="max-width:100%;max-height:100%;object-fit:contain">`; }
+  // Restore content if preview is open
+  if (tpl.html) {
+    const content = document.getElementById('rpt-preview-content');
+    if (content) { content.innerHTML = replaceTags(tpl.html); }
+    document.getElementById('rpt-preview-overlay').style.display = 'block';
+  }
+  const d = tpl.savedAt ? new Date(tpl.savedAt).toLocaleDateString('en-US') : '';
+  alert('Template loaded' + (d ? ' (saved ' + d + ')' : '') + '.');
 }
 
 function generateRecommendations() {
@@ -1350,15 +1418,16 @@ function renderReportSection(id) {
 
   switch(id) {
     case 'cover': return `<div class="rpt-cover">${_rptLogo?`<img src="${_rptLogo}">`:''}
-      <h1 style="font-size:36px;margin:20px 0 8px" contenteditable>Wi-Fi Health Assessment</h1>
+      <h1 style="font-size:36px;margin:20px 0 8px" contenteditable>Network Health Assessment</h1>
       <p style="font-size:18px;color:#555" contenteditable>Prepared for <#customer_name#></p>
       <p style="font-size:14px;color:#888" contenteditable>Prepared by <#company_name#></p>
+      <p style="font-size:14px;color:#888" contenteditable>Surveyor: <#surveyor_name#></p>
       <p style="font-size:14px;color:#888"><#report_date#></p>
       <p style="font-size:13px;color:#aaa;margin-top:40px" contenteditable>Confidential — For authorized distribution only</p></div>`;
 
     case 'exec_summary': return `<div class="rpt-section"><h2>Executive Summary</h2>
-      <p contenteditable>This report presents the findings of a wireless network health assessment conducted for <#customer_name#> from <#test_period#>. A total of <#total_tests#> automated tests were performed across <#device_count#> NetAlly test devices.</p>
-      <p contenteditable>The overall Wi-Fi Health Score is <b><#health_score#>/100</b> (<#health_grade#>), based on industry-standard metrics from Cisco, CWNA, and IEEE 802.11 benchmarks. Of the <#total_tests#> tests conducted, <#passed_tests#> passed and <#failed_tests#> failed, yielding a connection success rate of <#pass_rate#>.</p>
+      <p contenteditable>This report presents the findings of a network health assessment conducted for <#customer_name#> from <#test_period#>. A total of <#total_tests#> automated tests were performed across <#device_count#> NetAlly test devices.</p>
+      <p contenteditable>The overall Network Health Score is <b><#health_score#>/100</b> (<#health_grade#>), based on industry-standard metrics from Cisco, CWNA, and IEEE 802.11 benchmarks. Of the <#total_tests#> tests conducted, <#passed_tests#> passed and <#failed_tests#> failed, yielding a connection success rate of <#pass_rate#>.</p>
       <p contenteditable><#problem_count#> unique problem types were identified, with "<#top_problem#>" being the most frequent. Detailed findings and actionable recommendations are provided in the sections that follow.</p></div>`;
 
     case 'health_overview': {
@@ -1367,7 +1436,7 @@ function renderReportSection(id) {
       return `<div class="rpt-section"><h2>Health Score Overview</h2>
       <div style="text-align:center;padding:20px">
         <div style="font-size:64px;font-weight:800;color:${c};font-family:-apple-system,sans-serif">${sc}</div>
-        <div style="font-size:16px;color:#666">Wi-Fi Health Score ${scoreBadge(sc)}</div>
+        <div style="font-size:16px;color:#666">Network Health Score ${scoreBadge(sc)}</div>
       </div>
       <div style="text-align:center;margin:16px 0">${d.metrics.map(m => `<div class="rpt-metric-box"><div class="val" style="color:${scoreColor(m.score).replace('var(--green)','#8BC600').replace('var(--yellow)','#b8960b').replace('var(--red)','#d33')}">${m.avg!=null?(Math.abs(m.avg)>=10?Math.round(m.avg):m.avg.toFixed(1)):'N/A'}</div><div class="lbl">${m.name.replace(' (RSSI)','').replace('Signal-to-Noise Ratio','SNR')}</div></div>`).join('')}</div></div>`;
     }
@@ -1394,7 +1463,7 @@ function renderReportSection(id) {
 
     case 'wifi_score': {
       const sc = d.health_score;
-      return `<div class="rpt-section"><h2>Wi-Fi Health Score</h2>
+      return `<div class="rpt-section"><h2>Network Health Score</h2>
       <p contenteditable>The composite health score of <b>${sc}/100</b> is a weighted average of ${d.metrics.length} RF metrics, connection success rate, and problem diversity. Each metric is scored 0–100 against industry benchmarks (Cisco, CWNA, IEEE 802.11) and weighted by impact on user experience.</p>
       <table><thead><tr><th>Metric</th><th>Your Average</th><th>Good Threshold</th><th>Score</th><th>Weight</th></tr></thead><tbody>
       ${d.metrics.map(m=>`<tr><td>${m.name}</td><td><b>${m.avg!=null?m.avg+' '+m.unit:'N/A'}</b></td><td>${m.direction==='higher'?'≥':'≤'} ${m.good} ${m.unit}</td><td>${scoreBadge(m.score)}</td><td>${m.weight}%</td></tr>`).join('')}
@@ -1408,7 +1477,8 @@ function renderReportSection(id) {
       const m = d.metrics.find(x=>x.key===keyMap[id]);
       if (!m) return '';
       return `<div class="rpt-section"><h2>${m.name}</h2>
-      <div style="display:flex;gap:16px;margin:12px 0">
+      <p style="color:#555;font-style:italic;margin-bottom:12px">${m.detail || m.description}</p>
+      <div style="display:flex;gap:16px;margin:12px 0;flex-wrap:wrap">
         <div class="rpt-metric-box"><div class="val">${m.avg!=null?(Math.abs(m.avg)>=10?Math.round(m.avg):m.avg.toFixed(1)):'N/A'}</div><div class="lbl">Average</div></div>
         <div class="rpt-metric-box"><div class="val">${m.min!=null?m.min:'—'}</div><div class="lbl">Min</div></div>
         <div class="rpt-metric-box"><div class="val">${m.max!=null?m.max:'—'}</div><div class="lbl">Max</div></div>
@@ -1451,7 +1521,7 @@ function renderReportSection(id) {
     case 'wired_ethernet': return `<div class="rpt-section"><h2>Ethernet Link Results</h2><p style="color:#888;font-style:italic">Ethernet link data will appear here when loaded from Link-Live.</p></div>`;
 
     case 'appendix_methodology': return `<div class="rpt-section"><h2>Appendix: Scoring Methodology</h2>
-      <p>The Wi-Fi Health Score is a weighted composite of ${d.metrics.length} RF metrics plus connection success rate and problem diversity. Each metric is scored 0–100 using linear interpolation against industry-standard thresholds.</p>
+      <p>The Network Health Score is a weighted composite of ${d.metrics.length} RF metrics plus connection success rate and problem diversity. Each metric is scored 0–100 using linear interpolation against industry-standard thresholds.</p>
       <p><b>Floor Rule:</b> If any single metric scores below 30 (Poor), the composite score is capped at 65 regardless of other metrics.</p>
       <h3>Industry Sources</h3>
       <ul>${SOURCES.map(s=>`<li>${s.name}</li>`).join('')}</ul>
