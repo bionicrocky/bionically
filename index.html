@@ -6,6 +6,8 @@
 <title>BionicAlly — Wi-Fi Health Report</title>
 <link rel="icon" href="favicon.ico" type="image/x-icon">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 :root {
   --bg: #111614; --surface: #1a201e; --surface2: #232b28; --border: #2f3b36;
@@ -130,6 +132,31 @@ tr:hover td { background: var(--surface2); }
 .popup-stat .lbl { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; }
 .popup-stat .val { font-size: 18px; font-weight: 700; margin-top: 2px; }
 canvas { cursor: pointer; }
+/* Report builder */
+.rpt-template:hover { border-color: var(--accent); transform: translateY(-2px); transition: all .15s; }
+.rpt-template.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.rpt-section-group { font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--accent);font-weight:600;padding:8px 0 4px;grid-column:1/-1; }
+.rpt-section-item { display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;cursor:pointer }
+.rpt-section-item input[type=checkbox] { accent-color:var(--accent);width:16px;height:16px;cursor:pointer }
+/* Report preview print styles */
+#rpt-preview-content h1 { font-size:28px;font-weight:700;color:#111;margin:0 0 8px;font-family:-apple-system,sans-serif }
+#rpt-preview-content h2 { font-size:20px;font-weight:600;color:#333;margin:32px 0 12px;padding-bottom:8px;border-bottom:2px solid #8BC600;font-family:-apple-system,sans-serif }
+#rpt-preview-content h3 { font-size:16px;font-weight:600;color:#444;margin:20px 0 8px;font-family:-apple-system,sans-serif }
+#rpt-preview-content p { margin:0 0 12px }
+#rpt-preview-content ul { margin:0 0 12px;padding-left:24px }
+#rpt-preview-content li { margin:0 0 4px }
+#rpt-preview-content table { width:100%;border-collapse:collapse;font-size:12px;margin:12px 0;font-family:-apple-system,sans-serif }
+#rpt-preview-content th { background:#f5f5f5;padding:8px 10px;text-align:left;border:1px solid #ddd;font-weight:600;font-size:11px;text-transform:uppercase }
+#rpt-preview-content td { padding:6px 10px;border:1px solid #eee }
+#rpt-preview-content .rpt-metric-box { display:inline-block;padding:8px 16px;background:#f8f9fa;border:1px solid #e0e0e0;border-radius:8px;margin:4px;text-align:center;min-width:120px }
+#rpt-preview-content .rpt-metric-box .val { font-size:22px;font-weight:700;font-family:-apple-system,sans-serif }
+#rpt-preview-content .rpt-metric-box .lbl { font-size:10px;color:#666;text-transform:uppercase }
+#rpt-preview-content .rpt-score-badge { display:inline-block;padding:4px 12px;border-radius:20px;font-weight:600;font-size:13px;font-family:-apple-system,sans-serif }
+#rpt-preview-content [contenteditable]:hover { outline:2px dashed #8BC600;outline-offset:2px;border-radius:4px }
+#rpt-preview-content [contenteditable]:focus { outline:2px solid #8BC600;outline-offset:2px;border-radius:4px;background:#f0fff0 }
+#rpt-preview-content .rpt-cover { text-align:center;padding:80px 40px;page-break-after:always }
+#rpt-preview-content .rpt-cover img { max-width:200px;max-height:80px;margin-bottom:24px }
+#rpt-preview-content .rpt-section { page-break-inside:avoid;margin-bottom:24px }
 /* Chat drawer */
 .chat-toggle { background: var(--accent); border: none; color: #fff; padding: 5px 14px;
   border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; margin-left: 8px; transition: all .15s; }
@@ -205,6 +232,7 @@ canvas { cursor: pointer; }
     <button data-page="devices" onclick="showPage('devices')">Devices</button>
     <button data-page="scoring" onclick="showPage('scoring')">Scoring</button>
     <button data-page="problems" onclick="showPage('problems')">Problems</button>
+    <button data-page="reports" onclick="showPage('reports')">Reports</button>
   </div>
   <select id="org-switcher" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:4px 10px;font-size:12px;cursor:pointer;outline:none;max-width:220px" onchange="switchOrg(this.value)"></select>
   <div class="subtitle" id="org-name">Wi-Fi Health Report</div>
@@ -256,6 +284,76 @@ canvas { cursor: pointer; }
       <table id="problem-table"><thead><tr><th>Problem</th><th>Occurrences</th><th>Affected Devices</th></tr></thead><tbody></tbody></table>
     </div>
     <div id="problem-detail" style="display:none"></div>
+  </div>
+
+  <!-- REPORTS PAGE -->
+  <div id="page-reports" class="page">
+    <h2 style="margin-bottom:16px">Report Generator</h2>
+
+    <!-- Template Picker -->
+    <div class="grid grid-2" style="margin-bottom:20px">
+      <div class="card card-lg rpt-template" style="cursor:pointer;text-align:center" onclick="pickTemplate('executive',this)">
+        <div style="font-size:32px;margin-bottom:8px">&#128203;</div>
+        <h3 style="font-size:16px;color:var(--text);margin-bottom:4px">Executive Overview</h3>
+        <p style="font-size:12px;color:var(--text2)">High-level health summary, key findings, and recommendations for leadership.</p>
+      </div>
+      <div class="card card-lg rpt-template" style="cursor:pointer;text-align:center" onclick="pickTemplate('technical',this)">
+        <div style="font-size:32px;margin-bottom:8px">&#128295;</div>
+        <h3 style="font-size:16px;color:var(--text);margin-bottom:4px">Technical Assessment</h3>
+        <p style="font-size:12px;color:var(--text2)">Full metric breakdown, per-device analysis, problem deep-dive, and test data.</p>
+      </div>
+    </div>
+
+    <!-- Branding -->
+    <div class="card" style="margin-bottom:20px">
+      <h3>Branding</h3>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+        <div style="flex:0 0 120px">
+          <div id="rpt-logo-preview" style="width:120px;height:60px;background:var(--surface2);border:2px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;font-size:11px;color:var(--text2)" onclick="document.getElementById('rpt-logo-input').click()">Upload Logo</div>
+          <input type="file" id="rpt-logo-input" accept="image/*" style="display:none" onchange="handleLogoUpload(this)">
+        </div>
+        <div style="flex:1;min-width:200px">
+          <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Your Company</label>
+          <input type="text" id="rpt-company" placeholder="Your Company Name" style="width:100%;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;outline:none;margin-bottom:8px">
+          <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Customer / Site</label>
+          <input type="text" id="rpt-customer" placeholder="Customer or Site Name" style="width:100%;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;outline:none">
+        </div>
+        <div style="flex:0 0 160px">
+          <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Report Date</label>
+          <input type="date" id="rpt-date" style="width:100%;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;outline:none">
+        </div>
+      </div>
+    </div>
+
+    <!-- Section Checklist -->
+    <div class="card" style="margin-bottom:20px">
+      <h3>Sections <span style="font-weight:400;font-size:12px;color:var(--text2)">(toggle to include/exclude)</span></h3>
+      <div id="rpt-sections" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 24px"></div>
+    </div>
+
+    <!-- Actions -->
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <button onclick="previewReport()" style="padding:10px 24px;background:var(--accent);border:none;color:#fff;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">Preview &amp; Edit Report</button>
+      <button onclick="downloadPDF()" style="padding:10px 24px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:14px;cursor:pointer">Download PDF</button>
+      <button onclick="downloadCSV()" style="padding:10px 24px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:14px;cursor:pointer">Download CSV</button>
+    </div>
+  </div>
+</div>
+
+<!-- REPORT PREVIEW OVERLAY -->
+<div id="rpt-preview-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:300;overflow-y:auto;padding:20px">
+  <div style="max-width:850px;margin:0 auto">
+    <div style="display:flex;gap:8px;margin-bottom:12px;position:sticky;top:0;z-index:2;background:rgba(0,0,0,.8);padding:8px;border-radius:8px;backdrop-filter:blur(8px)">
+      <button onclick="document.getElementById('rpt-preview-overlay').style.display='none'" style="padding:6px 16px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer;font-size:13px">Close</button>
+      <button onclick="refreshTags()" style="padding:6px 16px;background:var(--accent);border:none;color:#fff;border-radius:6px;cursor:pointer;font-size:13px">Refresh Tags</button>
+      <button onclick="downloadPDF()" style="padding:6px 16px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer;font-size:13px">Download PDF</button>
+      <span style="color:var(--text2);font-size:12px;align-self:center;margin-left:auto">Click any text to edit. Use &lt;#tag#&gt; for dynamic data.</span>
+    </div>
+    <div id="rpt-preview-content" style="background:#fff;color:#222;padding:60px 50px;border-radius:4px;font-family:Georgia,'Times New Roman',serif;font-size:14px;line-height:1.7;min-height:80vh"></div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin-top:12px">
+      <h4 style="color:var(--text);font-size:13px;margin-bottom:8px">Available Tags — use these anywhere in your report text</h4>
+      <div id="rpt-tag-reference" style="display:flex;flex-wrap:wrap;gap:6px;font-family:monospace;font-size:11px"></div>
+    </div>
   </div>
 </div>
 
@@ -495,7 +593,7 @@ async function loadOrgData(orgName) {
     sw.value = window._currentOrgId || '';
   }
   showPage('dashboard');
-  renderDashboard(); renderDevices(); renderScoring(); renderProblems();
+  renderDashboard(); renderDevices(); renderScoring(); renderProblems(); initReportsPage();
 }
 
 async function switchOrg(orgId) {
@@ -1096,6 +1194,357 @@ function showTestListPopup(title, tests) {
 }
 
 function closePopup() { document.querySelectorAll('.popup-overlay').forEach(o=>o.remove()); }
+
+// ============================================================================
+// REPORTING ENGINE
+// ============================================================================
+const RPT_SECTIONS = [
+  {group:'Cover Page'},
+  {id:'cover',label:'Cover Page',exec:true,tech:true},
+  {group:'Executive Overview'},
+  {id:'exec_summary',label:'Executive Summary',exec:true,tech:true},
+  {id:'health_overview',label:'Health Score Overview',exec:true,tech:true},
+  {id:'key_findings',label:'Key Findings',exec:true,tech:true},
+  {id:'recommendations',label:'Recommendations',exec:true,tech:true},
+  {group:'Wireless Assessment'},
+  {id:'wifi_score',label:'Wi-Fi Health Score & Gauge',exec:false,tech:true},
+  {id:'wifi_rssi',label:'Signal Strength (RSSI) Analysis',exec:false,tech:true},
+  {id:'wifi_snr',label:'SNR Analysis',exec:false,tech:true},
+  {id:'wifi_chanutil',label:'Channel Utilization',exec:false,tech:true},
+  {id:'wifi_retry',label:'Retry Rate Analysis',exec:false,tech:true},
+  {id:'wifi_phyrate',label:'PHY Data Rate Summary',exec:false,tech:true},
+  {id:'wifi_problems',label:'Problem Summary',exec:true,tech:true},
+  {id:'wifi_devices',label:'Device Health Summary',exec:false,tech:true},
+  {id:'wifi_tests',label:'Test Results Table',exec:false,tech:true},
+  {group:'Wired Assessment'},
+  {id:'wired_summary',label:'Wired Test Summary',exec:false,tech:false},
+  {id:'wired_cable',label:'Cable Test Results',exec:false,tech:false},
+  {id:'wired_ethernet',label:'Ethernet Link Results',exec:false,tech:false},
+  {group:'Appendix'},
+  {id:'appendix_methodology',label:'Scoring Methodology',exec:false,tech:true},
+];
+
+let _rptLogo = null;
+
+function initReportsPage() {
+  const container = document.getElementById('rpt-sections');
+  if (!container) return;
+  container.innerHTML = '';
+  RPT_SECTIONS.forEach(s => {
+    if (s.group) {
+      container.innerHTML += `<div class="rpt-section-group">${s.group}</div>`;
+    } else {
+      container.innerHTML += `<label class="rpt-section-item"><input type="checkbox" id="rpt-chk-${s.id}" ${s.tech?'checked':''}><span>${s.label}</span></label>`;
+    }
+  });
+  // Set default date
+  const d = document.getElementById('rpt-date');
+  if (d) d.value = new Date().toISOString().split('T')[0];
+  // Build tag reference
+  buildTagReference();
+}
+
+function pickTemplate(type, el) {
+  document.querySelectorAll('.rpt-template').forEach(t => t.classList.remove('selected'));
+  if (el) el.classList.add('selected');
+  else if (event?.currentTarget) event.currentTarget.classList.add('selected');
+  RPT_SECTIONS.forEach(s => {
+    if (!s.id) return;
+    const chk = document.getElementById('rpt-chk-' + s.id);
+    if (chk) chk.checked = type === 'executive' ? !!s.exec : !!s.tech;
+  });
+}
+
+function handleLogoUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    _rptLogo = e.target.result;
+    document.getElementById('rpt-logo-preview').innerHTML = `<img src="${_rptLogo}" style="max-width:100%;max-height:100%;object-fit:contain">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ---- Tag System ----
+function getTagValues() {
+  const d = DATA;
+  if (!d) return {};
+  const sortedDevs = [...d.devices].sort((a,b) => b.score - a.score);
+  const worstDev = [...d.devices].sort((a,b) => a.score - b.score)[0];
+  const bestDev = sortedDevs[0];
+  const dates = d.devices.flatMap(dev => dev.tests.map(t => t.date)).sort();
+  const topProb = d.problems.length ? d.problems[0][0] : 'None';
+  const m = k => { const met = d.metrics.find(x => x.key === k); return met?.avg; };
+  return {
+    company_name: document.getElementById('rpt-company')?.value || '<#company_name#>',
+    customer_name: document.getElementById('rpt-customer')?.value || '<#customer_name#>',
+    report_date: document.getElementById('rpt-date')?.value || new Date().toISOString().split('T')[0],
+    org_name: d.devices[0]?.name ? document.getElementById('org-name')?.textContent?.replace(' — Wi-Fi Health Report','') : '',
+    health_score: d.health_score,
+    health_grade: gradeText(d.health_score),
+    total_tests: d.total_tests,
+    passed_tests: d.successful_tests,
+    failed_tests: d.failed_tests,
+    device_count: d.device_count,
+    problem_count: d.problem_count,
+    pass_rate: d.conn_success.rate + '%',
+    avg_rssi: m('linkSignalLevelMean') != null ? m('linkSignalLevelMean') + ' dBm' : 'N/A',
+    avg_snr: m('linkSNRMean') != null ? m('linkSNRMean') + ' dB' : 'N/A',
+    avg_noise: m('linkNoiseLevelMean') != null ? m('linkNoiseLevelMean') + ' dBm' : 'N/A',
+    avg_retry: m('linkRetryRateMean') != null ? m('linkRetryRateMean') + '%' : 'N/A',
+    avg_phy_rate: m('linkPhyDataRate') != null ? Math.round(m('linkPhyDataRate')) + ' Mbps' : 'N/A',
+    avg_chan_util: m('apChannelUtil') != null ? m('apChannelUtil') + '%' : 'N/A',
+    top_problem: topProb,
+    worst_device: worstDev ? worstDev.name.replace("Rocky's ",'') : 'N/A',
+    best_device: bestDev ? bestDev.name.replace("Rocky's ",'') : 'N/A',
+    test_period: dates.length ? new Date(dates[0]).toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' – ' + new Date(dates[dates.length-1]).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : 'N/A',
+    device_list: d.devices.map(dev => dev.name.replace("Rocky's ",'') + ' (Score: ' + dev.score + ')').join(', '),
+    problem_list: d.problems.map(([n,c]) => n + ' (' + c + 'x)').join(', '),
+    recommendations: generateRecommendations(),
+  };
+}
+
+function replaceTags(html) {
+  const vals = getTagValues();
+  return html.replace(/<#(\w+)#>/g, (match, key) => vals[key] !== undefined ? vals[key] : match);
+}
+
+function refreshTags() {
+  const el = document.getElementById('rpt-preview-content');
+  if (!el) return;
+  // Find all contenteditable elements and re-process tags in them
+  el.querySelectorAll('[contenteditable]').forEach(ce => {
+    ce.innerHTML = replaceTags(ce.innerHTML);
+  });
+}
+
+function buildTagReference() {
+  const tags = ['company_name','customer_name','report_date','org_name','health_score','health_grade',
+    'total_tests','passed_tests','failed_tests','device_count','problem_count','pass_rate',
+    'avg_rssi','avg_snr','avg_noise','avg_retry','avg_phy_rate','avg_chan_util',
+    'top_problem','worst_device','best_device','test_period','device_list','problem_list','recommendations'];
+  const ref = document.getElementById('rpt-tag-reference');
+  if (ref) ref.innerHTML = tags.map(t => `<span style="padding:3px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;cursor:pointer;color:var(--accent2)" onclick="navigator.clipboard.writeText('<#${t}#>')" title="Click to copy">&lt;#${t}#&gt;</span>`).join('');
+}
+
+function generateRecommendations() {
+  if (!DATA) return '';
+  const recs = [];
+  DATA.problems.forEach(([name]) => {
+    const kb = getProblemKB(name);
+    if (kb.remediation) recs.push(kb.remediation);
+  });
+  DATA.metrics.forEach(m => {
+    if (!m.is_good && m.avg != null) recs.push(m.why);
+  });
+  return recs.slice(0, 5).join(' ');
+}
+
+// ---- Section Renderers ----
+function renderReportSection(id) {
+  const d = DATA;
+  const tv = getTagValues();
+  const fmtDate = d => new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const scoreBadge = s => { const c = s>=70?'#8BC600':s>=40?'#eab308':'#ef4444'; return `<span class="rpt-score-badge" style="background:${c}22;color:${c}">${s}/100 — ${gradeText(s)}</span>`; };
+
+  switch(id) {
+    case 'cover': return `<div class="rpt-cover">${_rptLogo?`<img src="${_rptLogo}">`:''}
+      <h1 style="font-size:36px;margin:20px 0 8px" contenteditable>Wi-Fi Health Assessment</h1>
+      <p style="font-size:18px;color:#555" contenteditable>Prepared for <#customer_name#></p>
+      <p style="font-size:14px;color:#888" contenteditable>Prepared by <#company_name#></p>
+      <p style="font-size:14px;color:#888"><#report_date#></p>
+      <p style="font-size:13px;color:#aaa;margin-top:40px" contenteditable>Confidential — For authorized distribution only</p></div>`;
+
+    case 'exec_summary': return `<div class="rpt-section"><h2>Executive Summary</h2>
+      <p contenteditable>This report presents the findings of a wireless network health assessment conducted for <#customer_name#> from <#test_period#>. A total of <#total_tests#> automated tests were performed across <#device_count#> NetAlly test devices.</p>
+      <p contenteditable>The overall Wi-Fi Health Score is <b><#health_score#>/100</b> (<#health_grade#>), based on industry-standard metrics from Cisco, CWNA, and IEEE 802.11 benchmarks. Of the <#total_tests#> tests conducted, <#passed_tests#> passed and <#failed_tests#> failed, yielding a connection success rate of <#pass_rate#>.</p>
+      <p contenteditable><#problem_count#> unique problem types were identified, with "<#top_problem#>" being the most frequent. Detailed findings and actionable recommendations are provided in the sections that follow.</p></div>`;
+
+    case 'health_overview': {
+      const sc = d.health_score;
+      const c = sc>=70?'#8BC600':sc>=40?'#eab308':'#ef4444';
+      return `<div class="rpt-section"><h2>Health Score Overview</h2>
+      <div style="text-align:center;padding:20px">
+        <div style="font-size:64px;font-weight:800;color:${c};font-family:-apple-system,sans-serif">${sc}</div>
+        <div style="font-size:16px;color:#666">Wi-Fi Health Score ${scoreBadge(sc)}</div>
+      </div>
+      <div style="text-align:center;margin:16px 0">${d.metrics.map(m => `<div class="rpt-metric-box"><div class="val" style="color:${scoreColor(m.score).replace('var(--green)','#8BC600').replace('var(--yellow)','#b8960b').replace('var(--red)','#d33')}">${m.avg!=null?(Math.abs(m.avg)>=10?Math.round(m.avg):m.avg.toFixed(1)):'N/A'}</div><div class="lbl">${m.name.replace(' (RSSI)','').replace('Signal-to-Noise Ratio','SNR')}</div></div>`).join('')}</div></div>`;
+    }
+
+    case 'key_findings': {
+      const findings = [];
+      if (d.conn_success.rate < 80) findings.push(`Connection success rate is <b>${d.conn_success.rate}%</b> — below the 80% threshold for reliable enterprise Wi-Fi.`);
+      else findings.push(`Connection success rate is <b>${d.conn_success.rate}%</b> — ${d.conn_success.rate >= 90 ? 'excellent' : 'acceptable'} for enterprise Wi-Fi.`);
+      d.metrics.forEach(m => {
+        if (m.avg == null) return;
+        const dir = m.is_good ? 'meets' : 'does not meet';
+        findings.push(`${m.name}: <b>${Math.abs(m.avg)>=10?Math.round(m.avg):m.avg.toFixed(1)} ${m.unit}</b> — ${dir} the industry benchmark of ${m.direction==='higher'?'≥':'≤'} ${m.good} ${m.unit}.`);
+      });
+      if (d.problems.length) findings.push(`Top issue: <b>"${d.problems[0][0]}"</b> occurred ${d.problems[0][1]} times across the test period.`);
+      return `<div class="rpt-section"><h2>Key Findings</h2><ul contenteditable>${findings.map(f=>`<li>${f}</li>`).join('')}</ul></div>`;
+    }
+
+    case 'recommendations': {
+      const recs = [];
+      d.problems.forEach(([name]) => { const kb = getProblemKB(name); recs.push(`<b>${name}:</b> ${kb.remediation}`); });
+      d.metrics.forEach(m => { if (!m.is_good && m.avg != null) recs.push(`<b>${m.name}:</b> ${m.why}`); });
+      return `<div class="rpt-section"><h2>Recommendations</h2><ol contenteditable>${(recs.length?recs:['No critical issues identified. Continue monitoring.']).map(r=>`<li style="margin-bottom:8px">${r}</li>`).join('')}</ol></div>`;
+    }
+
+    case 'wifi_score': {
+      const sc = d.health_score;
+      return `<div class="rpt-section"><h2>Wi-Fi Health Score</h2>
+      <p contenteditable>The composite health score of <b>${sc}/100</b> is a weighted average of ${d.metrics.length} RF metrics, connection success rate, and problem diversity. Each metric is scored 0–100 against industry benchmarks (Cisco, CWNA, IEEE 802.11) and weighted by impact on user experience.</p>
+      <table><thead><tr><th>Metric</th><th>Your Average</th><th>Good Threshold</th><th>Score</th><th>Weight</th></tr></thead><tbody>
+      ${d.metrics.map(m=>`<tr><td>${m.name}</td><td><b>${m.avg!=null?m.avg+' '+m.unit:'N/A'}</b></td><td>${m.direction==='higher'?'≥':'≤'} ${m.good} ${m.unit}</td><td>${scoreBadge(m.score)}</td><td>${m.weight}%</td></tr>`).join('')}
+      <tr><td>Connection Success</td><td><b>${d.conn_success.rate}%</b></td><td>≥ 90%</td><td>${scoreBadge(d.conn_success.score)}</td><td>${d.conn_success.weight}%</td></tr>
+      <tr><td>Problem Diversity</td><td><b>${d.problem_diversity.count} types</b></td><td>≤ 2</td><td>${scoreBadge(d.problem_diversity.score)}</td><td>${d.problem_diversity.weight}%</td></tr>
+      </tbody></table></div>`;
+    }
+
+    case 'wifi_rssi': case 'wifi_snr': case 'wifi_chanutil': case 'wifi_retry': case 'wifi_phyrate': {
+      const keyMap = {wifi_rssi:'linkSignalLevelMean',wifi_snr:'linkSNRMean',wifi_chanutil:'apChannelUtil',wifi_retry:'linkRetryRateMean',wifi_phyrate:'linkPhyDataRate'};
+      const m = d.metrics.find(x=>x.key===keyMap[id]);
+      if (!m) return '';
+      return `<div class="rpt-section"><h2>${m.name}</h2>
+      <div style="display:flex;gap:16px;margin:12px 0">
+        <div class="rpt-metric-box"><div class="val">${m.avg!=null?(Math.abs(m.avg)>=10?Math.round(m.avg):m.avg.toFixed(1)):'N/A'}</div><div class="lbl">Average</div></div>
+        <div class="rpt-metric-box"><div class="val">${m.min!=null?m.min:'—'}</div><div class="lbl">Min</div></div>
+        <div class="rpt-metric-box"><div class="val">${m.max!=null?m.max:'—'}</div><div class="lbl">Max</div></div>
+        <div class="rpt-metric-box"><div class="val">${m.count}</div><div class="lbl">Samples</div></div>
+        <div class="rpt-metric-box"><div class="val">${scoreBadge(m.score)}</div><div class="lbl">Score</div></div>
+      </div>
+      <p contenteditable>${m.why}</p>
+      <p style="font-size:12px;color:#888">Industry threshold: ${m.direction==='higher'?'≥':'≤'} ${m.good} ${m.unit} (Good), ${m.accept} ${m.unit} (Acceptable). Source: ${m.source}</p></div>`;
+    }
+
+    case 'wifi_problems': {
+      if (!d.problems.length) return `<div class="rpt-section"><h2>Problem Summary</h2><p>No Wi-Fi problems were detected during the assessment period.</p></div>`;
+      return `<div class="rpt-section"><h2>Problem Summary</h2>
+      <p contenteditable><#problem_count#> unique problem types were identified across <#total_tests#> tests.</p>
+      <table><thead><tr><th>Problem</th><th>Occurrences</th><th>Severity</th><th>Remediation</th></tr></thead><tbody>
+      ${d.problems.map(([name,count])=>{const kb=getProblemKB(name);return `<tr><td><b>${name}</b></td><td>${count}</td><td style="color:${kb.severity==='high'?'#d33':'#b8960b'}">${kb.severity.toUpperCase()}</td><td style="font-size:12px">${kb.remediation.substring(0,120)}...</td></tr>`}).join('')}
+      </tbody></table></div>`;
+    }
+
+    case 'wifi_devices': {
+      const devs = [...d.devices].sort((a,b)=>b.score-a.score);
+      return `<div class="rpt-section"><h2>Device Health Summary</h2>
+      <table><thead><tr><th>Device</th><th>Score</th><th>Tests</th><th>Pass</th><th>Fail</th><th>Pass Rate</th></tr></thead><tbody>
+      ${devs.map(dev=>`<tr><td><b>${dev.name.replace("Rocky's ",'')}</b></td><td>${scoreBadge(dev.score)}</td><td>${dev.total}</td><td>${dev.pass}</td><td>${dev.fail}</td><td>${dev.total?Math.round(dev.pass/dev.total*100):0}%</td></tr>`).join('')}
+      </tbody></table></div>`;
+    }
+
+    case 'wifi_tests': {
+      const allTests = [];
+      d.devices.forEach(dev=>dev.tests.forEach(t=>allTests.push({...t,device:dev.name})));
+      return `<div class="rpt-section"><h2>Test Results</h2>
+      <table><thead><tr><th>Device</th><th>Date</th><th>Status</th><th>Profile</th><th>RSSI</th><th>SNR</th><th>Retry</th><th>PHY Rate</th></tr></thead><tbody>
+      ${allTests.slice(0,50).map(t=>`<tr><td>${t.device.replace("Rocky's ",'')}</td><td>${fmtDate(t.date)}</td><td style="color:${t.color==='green'?'#8BC600':'#d33'}">${t.color==='green'?'Pass':'Fail'}</td><td>${t.profile}</td><td>${typeof t.rssi==='number'?t.rssi+' dBm':'—'}</td><td>${typeof t.snr==='number'?t.snr+' dB':'—'}</td><td>${typeof t.retry==='number'?t.retry+'%':'—'}</td><td>${typeof t.phyRate==='number'?Math.round(t.phyRate)+' Mbps':'—'}</td></tr>`).join('')}
+      </tbody></table>
+      ${allTests.length>50?`<p style="font-size:12px;color:#888">Showing first 50 of ${allTests.length} tests. Full data available in CSV export.</p>`:''}</div>`;
+    }
+
+    case 'wired_summary': return `<div class="rpt-section"><h2>Wired Test Summary</h2><p contenteditable>Wired network testing was conducted to validate infrastructure supporting the wireless deployment. Results include cable certification, Ethernet link verification, and switch port analysis.</p><p style="color:#888;font-style:italic">Wired test data will appear here when wired results are loaded from Link-Live.</p></div>`;
+    case 'wired_cable': return `<div class="rpt-section"><h2>Cable Test Results</h2><p style="color:#888;font-style:italic">Cable test data will appear here when loaded from Link-Live.</p></div>`;
+    case 'wired_ethernet': return `<div class="rpt-section"><h2>Ethernet Link Results</h2><p style="color:#888;font-style:italic">Ethernet link data will appear here when loaded from Link-Live.</p></div>`;
+
+    case 'appendix_methodology': return `<div class="rpt-section"><h2>Appendix: Scoring Methodology</h2>
+      <p>The Wi-Fi Health Score is a weighted composite of ${d.metrics.length} RF metrics plus connection success rate and problem diversity. Each metric is scored 0–100 using linear interpolation against industry-standard thresholds.</p>
+      <p><b>Floor Rule:</b> If any single metric scores below 30 (Poor), the composite score is capped at 65 regardless of other metrics.</p>
+      <h3>Industry Sources</h3>
+      <ul>${SOURCES.map(s=>`<li>${s.name}</li>`).join('')}</ul>
+      <p style="font-size:12px;color:#888">Report generated by BionicAlly — bionicrocky.github.io/bionically</p></div>`;
+
+    default: return '';
+  }
+}
+
+// ---- Preview ----
+function previewReport() {
+  const content = document.getElementById('rpt-preview-content');
+  if (!DATA) { alert('Load data first by signing in.'); return; }
+  let html = '';
+  RPT_SECTIONS.forEach(s => {
+    if (!s.id) return;
+    const chk = document.getElementById('rpt-chk-' + s.id);
+    if (chk && chk.checked) html += renderReportSection(s.id);
+  });
+  content.innerHTML = replaceTags(html);
+  document.getElementById('rpt-preview-overlay').style.display = 'block';
+  document.getElementById('rpt-preview-overlay').scrollTop = 0;
+}
+
+// ---- PDF Export ----
+async function downloadPDF() {
+  // If preview isn't open, generate it first
+  if (document.getElementById('rpt-preview-overlay').style.display === 'none') previewReport();
+  const el = document.getElementById('rpt-preview-content');
+  if (!el || !el.innerHTML.trim()) { alert('No report content. Click Preview first.'); return; }
+  const btn = event?.target; if (btn) { btn.textContent = 'Generating PDF...'; btn.disabled = true; }
+  try {
+    const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageW = 210, pageH = 297, margin = 10;
+    const imgW = pageW - margin * 2;
+    const imgH = canvas.height * imgW / canvas.width;
+    let y = margin;
+    const pageImgH = pageH - margin * 2;
+    // Split into pages
+    if (imgH <= pageImgH) {
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', margin, margin, imgW, imgH);
+    } else {
+      let srcY = 0;
+      const ratio = canvas.width / imgW;
+      while (srcY < canvas.height) {
+        const sliceH = Math.min(pageImgH * ratio, canvas.height - srcY);
+        const sliceCanvas = document.createElement('canvas');
+        sliceCanvas.width = canvas.width;
+        sliceCanvas.height = sliceH;
+        sliceCanvas.getContext('2d').drawImage(canvas, 0, srcY, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+        pdf.addImage(sliceCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', margin, margin, imgW, sliceH / ratio);
+        srcY += sliceH;
+        if (srcY < canvas.height) pdf.addPage();
+      }
+    }
+    const company = document.getElementById('rpt-company')?.value || 'BionicAlly';
+    pdf.save(`${company.replace(/\s+/g,'_')}_WiFi_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+  } catch (e) { alert('PDF generation error: ' + e.message); }
+  if (btn) { btn.textContent = 'Download PDF'; btn.disabled = false; }
+}
+
+// ---- CSV Export ----
+function downloadCSV() {
+  if (!DATA) { alert('Load data first.'); return; }
+  const headers = ['Device','Date','Status','Profile','RSSI (dBm)','SNR (dB)','Noise (dBm)','Retry (%)','PHY Rate (Mbps)','Channel Util (%)','Problems'];
+  const rows = [];
+  DATA.devices.forEach(dev => dev.tests.forEach(t => {
+    rows.push([
+      dev.name.replace("Rocky's ",''),
+      t.date,
+      t.color === 'green' ? 'Pass' : 'Fail',
+      t.profile,
+      t.rssi ?? '',
+      t.snr ?? '',
+      t.noise ?? '',
+      t.retry ?? '',
+      typeof t.phyRate === 'number' ? Math.round(t.phyRate) : '',
+      t.chanUtil ?? '',
+      t.problems.map(p => p.split(' (')[0]).join('; ')
+    ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
+  }));
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const company = document.getElementById('rpt-company')?.value || 'BionicAlly';
+  a.download = `${company.replace(/\s+/g,'_')}_WiFi_Data_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 // ============================================================================
 // AI CHAT — Claude API powered data analysis
