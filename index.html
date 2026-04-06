@@ -8,9 +8,9 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
 :root {
-  --bg: #0f1117; --surface: #1a1d27; --surface2: #242836; --border: #2e3345;
-  --text: #e4e6ef; --text2: #9ba1b7; --accent: #6366f1; --accent2: #818cf8;
-  --green: #22c55e; --yellow: #eab308; --red: #ef4444; --blue: #3b82f6;
+  --bg: #0e1318; --surface: #162028; --surface2: #1e2d38; --border: #2a3f4e;
+  --text: #e4eaef; --text2: #8fa4b3; --accent: #5B7F95; --accent2: #97D700;
+  --green: #97D700; --yellow: #eab308; --red: #ef4444; --blue: #5B7F95;
   --radius: 12px;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -85,7 +85,7 @@ a:hover { text-decoration: underline; }
 .metric-card .score-fill { height: 100%; border-radius: 2px; transition: width .6s ease; }
 .metric-card .meta { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: var(--text2); }
 .grade { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
-.grade-good { background: rgba(34,197,94,.15); color: var(--green); }
+.grade-good { background: rgba(151,215,0,.15); color: var(--green); }
 .grade-fair { background: rgba(234,179,8,.15); color: var(--yellow); }
 .grade-poor { background: rgba(239,68,68,.15); color: var(--red); }
 .stats-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
@@ -104,7 +104,7 @@ tr:hover td { background: var(--surface2); }
 .threshold-row { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
 .threshold { padding: 10px 16px; border-radius: 8px; font-size: 13px; flex: 1; min-width: 150px; }
 .threshold b { display: block; font-size: 18px; margin-bottom: 2px; }
-.threshold-good { background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.2); }
+.threshold-good { background: rgba(151,215,0,.1); border: 1px solid rgba(151,215,0,.2); }
 .threshold-accept { background: rgba(234,179,8,.1); border: 1px solid rgba(234,179,8,.2); }
 .threshold-poor { background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.2); }
 .back-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 6px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; margin-bottom: 16px; }
@@ -675,7 +675,7 @@ function drawGauge(score) {
   const c = document.getElementById('chart-gauge'); if (!c) return;
   const ctx = c.getContext('2d'), cx = 100, cy = 100, r = 80;
   for (let i = 0; i < 100; i++) { const a = Math.PI+(i/100)*Math.PI, a2 = Math.PI+((i+1)/100)*Math.PI;
-    ctx.beginPath(); ctx.arc(cx,cy,r,a,a2); ctx.strokeStyle = i<33?'#ef4444':i<66?'#eab308':'#22c55e'; ctx.lineWidth=16; ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(cx,cy,r,a,a2); ctx.strokeStyle = i<33?'#ef4444':i<66?'#eab308':'#97D700'; ctx.lineWidth=16; ctx.stroke(); }
   const angle = Math.PI+(score/100)*Math.PI; ctx.beginPath(); ctx.moveTo(cx,cy);
   ctx.lineTo(cx+Math.cos(angle)*(r-20),cy+Math.sin(angle)*(r-20)); ctx.strokeStyle='#e4e6ef'; ctx.lineWidth=3; ctx.stroke();
   ctx.beginPath(); ctx.arc(cx,cy,6,0,2*Math.PI); ctx.fillStyle='#e4e6ef'; ctx.fill();
@@ -705,7 +705,7 @@ function showMetricDetail(idx) {
     </div>
     ${m.avg!=null?`<div style="margin-bottom:12px"><b>Your average:</b> ${fmt(m.avg,m.unit)} &nbsp; <b>Samples:</b> ${m.count||(m.values||[]).length}</div>`:''}
     ${m.min!=null?`<div style="margin-bottom:12px"><b>Range:</b> ${fmt(m.min,m.unit)} to ${fmt(m.max,m.unit)}</div>`:''}
-    ${m.why?`<div style="margin-bottom:16px;padding:14px 16px;border-radius:8px;font-size:14px;line-height:1.6;${m.is_good?'background:rgba(34,197,94,.08);border-left:4px solid var(--green)':'background:rgba(239,68,68,.08);border-left:4px solid var(--red)'}">
+    ${m.why?`<div style="margin-bottom:16px;padding:14px 16px;border-radius:8px;font-size:14px;line-height:1.6;${m.is_good?'background:rgba(151,215,0,.08);border-left:4px solid var(--green)':'background:rgba(239,68,68,.08);border-left:4px solid var(--red)'}">
       <b style="display:block;margin-bottom:4px">${m.is_good?'✅ Why this is good':'⚠️ Why this needs attention'}</b>${m.why}</div>`:''}
     <div style="margin-bottom:16px;font-size:14px;line-height:1.6">${m.detail||''}</div>
     ${(m.learn_more&&m.learn_more.length)?`<div style="margin-top:12px;padding:12px 16px;background:var(--surface2);border-radius:8px">
@@ -721,7 +721,7 @@ function showMetricDetail(idx) {
     }));
     const ch = new Chart(document.getElementById('chart-metric-detail'),{type:'bar',
       data:{labels:m.values.map((_,i)=>'Test '+(i+1)),datasets:[{data:m.values,backgroundColor:m.values.map(v=>{
-        return m.direction==='higher'?(v>=m.good?'#22c55e':v>=m.accept?'#eab308':'#ef4444'):(v<=m.good?'#22c55e':v<=m.accept?'#eab308':'#ef4444');
+        return m.direction==='higher'?(v>=m.good?'#97D700':v>=m.accept?'#eab308':'#ef4444'):(v<=m.good?'#97D700':v<=m.accept?'#eab308':'#ef4444');
       }),borderRadius:4}]},options:{plugins:{legend:{display:false}},scales:{y:{grid:{color:'#2e3345'},ticks:{color:'#9ba1b7'}},x:{grid:{display:false},ticks:{color:'#9ba1b7'}}},
       onClick:(evt,elements)=>{if(elements.length&&metricTests[elements[0].index])showTestPopup(metricTests[elements[0].index])}}});
   }
@@ -742,7 +742,7 @@ function renderCharts() {
     const rssiTests = allTests.filter(t=>typeof t.rssi==='number');
     rssiTests.forEach(t=>{const i=Math.min(14,Math.max(0,Math.floor((t.rssi-bMin)/bW)));bins[i]++;binTests[i].push(t)});
     new Chart(document.getElementById('chart-rssi'),{type:'bar',
-      data:{labels:bins.map((_,i)=>Math.round(bMin+i*bW)+' dBm'),datasets:[{label:'Test Count',data:bins,backgroundColor:bins.map((_,i)=>{const v=bMin+i*bW;return v>=-65?'#22c55e88':v>=-72?'#eab30888':'#ef444488'}),borderRadius:4}]},
+      data:{labels:bins.map((_,i)=>Math.round(bMin+i*bW)+' dBm'),datasets:[{label:'Test Count',data:bins,backgroundColor:bins.map((_,i)=>{const v=bMin+i*bW;return v>=-65?'#97D70088':v>=-72?'#eab30888':'#ef444488'}),borderRadius:4}]},
       options:{...co,onClick:(evt,el)=>{if(el.length){const bt=binTests[el[0].index];if(bt.length===1)showTestPopup(bt[0]);else if(bt.length>1)showTestListPopup('Tests in RSSI range '+Math.round(bMin+el[0].index*bW)+' to '+Math.round(bMin+(el[0].index+1)*bW)+' dBm',bt)}}}});
   }
 
@@ -750,7 +750,7 @@ function renderCharts() {
   const passDots=[], failDots=[];
   allTests.forEach(t=>{if(t.snr!=null&&t.retry!=null&&typeof t.snr==='number'){(t.color==='green'?passDots:failDots).push(t)}});
   new Chart(document.getElementById('chart-scatter'),{type:'scatter',data:{datasets:[
-    {label:'Pass',data:passDots.map(t=>({x:t.snr,y:t.retry})),backgroundColor:'#22c55e',pointRadius:6},
+    {label:'Pass',data:passDots.map(t=>({x:t.snr,y:t.retry})),backgroundColor:'#97D700',pointRadius:6},
     {label:'Fail',data:failDots.map(t=>({x:t.snr,y:t.retry})),backgroundColor:'#ef4444',pointRadius:6}]},
     options:{...co,scales:{...co.scales,x:{...co.scales.x,title:{display:true,text:'SNR (dB)',color:'#9ba1b7'}},y:{...co.scales.y,title:{display:true,text:'Retry Rate (%)',color:'#9ba1b7'}}},
     onClick:(evt,el)=>{if(el.length){const ds=el[0].datasetIndex===0?passDots:failDots;showTestPopup(ds[el[0].index])}}}});
@@ -766,11 +766,11 @@ function renderCharts() {
 function renderDevices() {
   const d=DATA, devs=[...d.devices].sort((a,b)=>b.score-a.score);
   // Device scores — click shows all tests for that device
-  new Chart(document.getElementById('chart-device-scores'),{type:'bar',data:{labels:devs.map(d=>d.name.replace("Rocky's ",'')),datasets:[{data:devs.map(d=>d.score),backgroundColor:devs.map(d=>d.score>=70?'#22c55e':d.score>=40?'#eab308':'#ef4444'),borderRadius:6}]},
+  new Chart(document.getElementById('chart-device-scores'),{type:'bar',data:{labels:devs.map(d=>d.name.replace("Rocky's ",'')),datasets:[{data:devs.map(d=>d.score),backgroundColor:devs.map(d=>d.score>=70?'#97D700':d.score>=40?'#eab308':'#ef4444'),borderRadius:6}]},
     options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{max:100,grid:{color:'#2e334522'},ticks:{color:'#9ba1b7'}},y:{grid:{display:false},ticks:{color:'#9ba1b7',font:{size:10}}}},
     onClick:(evt,el)=>{if(el.length){const dev=devs[el[0].index];showTestListPopup(dev.name.replace("Rocky's ",'')+' — All Tests',dev.tests.map(t=>({...t,device:dev.name})))}}}});
   // Pass/fail stacked — click shows tests for that device
-  new Chart(document.getElementById('chart-device-passfail'),{type:'bar',data:{labels:devs.map(d=>d.name.replace("Rocky's ",'')),datasets:[{label:'Pass',data:devs.map(d=>d.pass),backgroundColor:'#22c55e',borderRadius:4},{label:'Fail',data:devs.map(d=>d.fail),backgroundColor:'#ef4444',borderRadius:4}]},
+  new Chart(document.getElementById('chart-device-passfail'),{type:'bar',data:{labels:devs.map(d=>d.name.replace("Rocky's ",'')),datasets:[{label:'Pass',data:devs.map(d=>d.pass),backgroundColor:'#97D700',borderRadius:4},{label:'Fail',data:devs.map(d=>d.fail),backgroundColor:'#ef4444',borderRadius:4}]},
     options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{labels:{color:'#9ba1b7'}}},scales:{x:{stacked:true,grid:{color:'#2e334522'},ticks:{color:'#9ba1b7'}},y:{stacked:true,grid:{display:false},ticks:{color:'#9ba1b7',font:{size:10}}}},
     onClick:(evt,el)=>{if(el.length){const dev=devs[el[0].index];const filter=el[0].datasetIndex===0?'green':'fail';const tests=dev.tests.filter(t=>filter==='green'?t.color==='green':t.color!=='green').map(t=>({...t,device:dev.name}));showTestListPopup(dev.name.replace("Rocky's ",'')+' — '+(filter==='green'?'Passed':'Failed')+' Tests',tests)}}}});
   const tbody=document.querySelector('#device-table tbody'); tbody.innerHTML='';
@@ -795,7 +795,7 @@ function renderScoring() {
   const container=document.getElementById('scoring-metrics');
   d.metrics.forEach(m=>{
     const goodDir=m.direction==='higher'?'≥':'≤',poorDir=m.direction==='higher'?'<':'>';
-    const whyH=m.why?`<div style="margin:10px 0;padding:10px 12px;border-radius:6px;font-size:12px;line-height:1.5;${m.is_good?'background:rgba(34,197,94,.06);border-left:3px solid var(--green)':'background:rgba(239,68,68,.06);border-left:3px solid var(--red)'}">
+    const whyH=m.why?`<div style="margin:10px 0;padding:10px 12px;border-radius:6px;font-size:12px;line-height:1.5;${m.is_good?'background:rgba(151,215,0,.06);border-left:3px solid var(--green)':'background:rgba(239,68,68,.06);border-left:3px solid var(--red)'}">
       <b>${m.is_good?'✅ Why this is good:':'⚠️ Why this needs attention:'}</b> ${m.why}</div>`:'';
     const linksH=(m.learn_more&&m.learn_more.length)?`<div style="font-size:12px;margin-top:8px">${m.learn_more.map(l=>`<a href="${l.url}" target="_blank" style="margin-right:12px">${l.title} →</a>`).join('')}</div>`
       :`<div style="font-size:12px;margin-top:8px"><span class="tag">Source</span> <a href="${m.source_url}" target="_blank">${m.source}</a></div>`;
@@ -946,7 +946,7 @@ function renderProblems() {
   const dp={}; d.devices.forEach(dev=>{const t=Object.values(dev.problems||{}).reduce((a,b)=>a+b,0);if(t>0)dp[dev.name.replace("Rocky's ",'')]=t});
   const sorted=Object.entries(dp).sort((a,b)=>b[1]-a[1]);
   const devNameMap={}; d.devices.forEach(dev=>devNameMap[dev.name.replace("Rocky's ",'')]=dev);
-  new Chart(document.getElementById('chart-problems-device'),{type:'doughnut',data:{labels:sorted.map(s=>s[0]),datasets:[{data:sorted.map(s=>s[1]),backgroundColor:['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#8b5cf6','#ec4899']}]},
+  new Chart(document.getElementById('chart-problems-device'),{type:'doughnut',data:{labels:sorted.map(s=>s[0]),datasets:[{data:sorted.map(s=>s[1]),backgroundColor:['#ef4444','#f97316','#eab308','#97D700','#3b82f6','#8b5cf6','#ec4899']}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#9ba1b7',font:{size:11},padding:12,usePointStyle:true}}},
     onClick:(evt,el)=>{if(el.length){const devName=sorted[el[0].index][0];const dev=devNameMap[devName];if(dev){const failed=dev.tests.filter(t=>t.problems.length>0).map(t=>({...t,device:dev.name}));showTestListPopup(devName+' — Failed Tests',failed)}}}}});
 
@@ -980,7 +980,7 @@ function showProblemDetail(name) {
   const kb = getProblemKB(name);
   const incidents = window._problemIncidents[name] || [];
   const sevColor = kb.severity==='high'?'var(--red)':kb.severity==='medium'?'var(--yellow)':'var(--green)';
-  const sevBg = kb.severity==='high'?'rgba(239,68,68,.08)':kb.severity==='medium'?'rgba(234,179,8,.08)':'rgba(34,197,94,.08)';
+  const sevBg = kb.severity==='high'?'rgba(239,68,68,.08)':kb.severity==='medium'?'rgba(234,179,8,.08)':'rgba(151,215,0,.08)';
 
   panel.style.display = 'block';
   panel.innerHTML = `<div class="detail-panel">
@@ -1115,13 +1115,27 @@ function toggleChat() {
 function onApiKeyChange() {
   const key = document.getElementById('chat-api-key').value.trim();
   _chatApiKey = key || null;
+  if (_chatApiKey) localStorage.setItem('bionically_ak', _chatApiKey);
   document.getElementById('chat-input').disabled = !_chatApiKey;
   document.getElementById('chat-send-btn').disabled = !_chatApiKey;
   if (_chatApiKey) {
-    addChatMsg('system', 'API key set. Ask me anything about your Wi-Fi health data!');
+    addChatMsg('system', 'API key saved. Ask me anything about your Wi-Fi health data!');
     document.getElementById('chat-input').focus();
   }
 }
+// Restore API key from localStorage on load
+(function() {
+  const saved = localStorage.getItem('bionically_ak');
+  if (saved) {
+    _chatApiKey = saved;
+    const el = document.getElementById('chat-api-key');
+    if (el) el.value = saved;
+    const inp = document.getElementById('chat-input');
+    const btn = document.getElementById('chat-send-btn');
+    if (inp) inp.disabled = false;
+    if (btn) btn.disabled = false;
+  }
+})();
 
 function addChatMsg(role, text) {
   const msgs = document.getElementById('chat-messages');
