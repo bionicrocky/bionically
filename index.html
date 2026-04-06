@@ -339,8 +339,12 @@ canvas { cursor: pointer; }
       <button onclick="previewReport()" style="padding:10px 24px;background:var(--accent);border:none;color:#fff;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">Preview &amp; Edit Report</button>
       <button onclick="downloadPDF()" style="padding:10px 24px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:14px;cursor:pointer">Download PDF</button>
       <button onclick="downloadCSV()" style="padding:10px 24px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:14px;cursor:pointer">Download CSV</button>
-      <button onclick="saveTemplate()" style="padding:10px 24px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:14px;cursor:pointer">Save Template</button>
-      <button onclick="loadTemplate()" style="padding:10px 24px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:14px;cursor:pointer">Load Template</button>
+    </div>
+
+    <!-- Saved Templates -->
+    <div class="card" style="margin-top:20px">
+      <h3>Saved Templates</h3>
+      <div id="rpt-saved-templates"><span style="color:var(--text2);font-size:12px">No saved templates yet.</span></div>
     </div>
   </div>
 </div>
@@ -1245,11 +1249,40 @@ function initReportsPage() {
       container.innerHTML += `<label class="rpt-section-item"><input type="checkbox" id="rpt-chk-${s.id}" ${s.tech?'checked':''}><span>${s.label}</span></label>`;
     }
   });
-  // Set default date
   const d = document.getElementById('rpt-date');
   if (d) d.value = new Date().toISOString().split('T')[0];
-  // Build tag reference
   buildTagReference();
+  restoreBranding();
+  populateTemplateList();
+  // Auto-save branding on field changes
+  ['rpt-company','rpt-surveyor'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('blur', saveBranding);
+  });
+}
+
+// ---- Branding Persistence ----
+function saveBranding() {
+  const branding = {
+    company: document.getElementById('rpt-company')?.value || '',
+    surveyor: document.getElementById('rpt-surveyor')?.value || '',
+    logo: _rptLogo,
+  };
+  localStorage.setItem('bionically_branding', JSON.stringify(branding));
+}
+
+function restoreBranding() {
+  const saved = localStorage.getItem('bionically_branding');
+  if (!saved) return;
+  try {
+    const b = JSON.parse(saved);
+    if (b.company) document.getElementById('rpt-company').value = b.company;
+    if (b.surveyor) document.getElementById('rpt-surveyor').value = b.surveyor;
+    if (b.logo) {
+      _rptLogo = b.logo;
+      document.getElementById('rpt-logo-preview').innerHTML = `<img src="${_rptLogo}" style="max-width:100%;max-height:100%;object-fit:contain">`;
+    }
+  } catch(e) {}
 }
 
 function pickTemplate(type, el) {
@@ -1270,6 +1303,7 @@ function handleLogoUpload(input) {
   reader.onload = e => {
     _rptLogo = e.target.result;
     document.getElementById('rpt-logo-preview').innerHTML = `<img src="${_rptLogo}" style="max-width:100%;max-height:100%;object-fit:contain">`;
+    saveBranding();
   };
   reader.readAsDataURL(file);
 }
@@ -1381,42 +1415,74 @@ function insertTagAtCursor(tag) {
   }
 }
 
+function getTemplateList() {
+  try { return JSON.parse(localStorage.getItem('bionically_templates') || '{}'); } catch { return {}; }
+}
+
 function saveTemplate() {
   const content = document.getElementById('rpt-preview-content');
+  const customer = document.getElementById('rpt-customer')?.value || 'Untitled';
+  const defaultName = customer + ' — ' + formatUSDate(new Date().toISOString().split('T')[0]);
+  const name = prompt('Save template as:', defaultName);
+  if (!name) return;
   const checks = {};
   RPT_SECTIONS.forEach(s => { if (s.id) { const chk = document.getElementById('rpt-chk-' + s.id); if (chk) checks[s.id] = chk.checked; }});
   const tpl = {
     html: content?.innerHTML || '',
     checks,
-    company: document.getElementById('rpt-company')?.value || '',
     customer: document.getElementById('rpt-customer')?.value || '',
-    surveyor: document.getElementById('rpt-surveyor')?.value || '',
-    logo: _rptLogo,
     savedAt: new Date().toISOString(),
   };
-  localStorage.setItem('bionically_rpt_template', JSON.stringify(tpl));
-  alert('Template saved! It will be restored next time you open the report builder.');
+  const templates = getTemplateList();
+  templates[name] = tpl;
+  localStorage.setItem('bionically_templates', JSON.stringify(templates));
+  populateTemplateList();
+  alert('Template "' + name + '" saved.');
 }
 
-function loadTemplate() {
-  const saved = localStorage.getItem('bionically_rpt_template');
-  if (!saved) { alert('No saved template found.'); return; }
-  const tpl = JSON.parse(saved);
-  // Restore checks
+function loadTemplate(name) {
+  const templates = getTemplateList();
+  if (!name) {
+    const names = Object.keys(templates);
+    if (!names.length) { alert('No saved templates found.'); return; }
+    name = prompt('Load template:\n\n' + names.map((n, i) => (i + 1) + '. ' + n).join('\n') + '\n\nType the template name:');
+    if (!name) return;
+  }
+  const tpl = templates[name];
+  if (!tpl) { alert('Template "' + name + '" not found.'); return; }
   if (tpl.checks) { Object.entries(tpl.checks).forEach(([id, val]) => { const chk = document.getElementById('rpt-chk-' + id); if (chk) chk.checked = val; }); }
-  // Restore branding
-  if (tpl.company) document.getElementById('rpt-company').value = tpl.company;
   if (tpl.customer) document.getElementById('rpt-customer').value = tpl.customer;
-  if (tpl.surveyor) document.getElementById('rpt-surveyor').value = tpl.surveyor;
-  if (tpl.logo) { _rptLogo = tpl.logo; document.getElementById('rpt-logo-preview').innerHTML = `<img src="${_rptLogo}" style="max-width:100%;max-height:100%;object-fit:contain">`; }
-  // Restore content if preview is open
   if (tpl.html) {
     const content = document.getElementById('rpt-preview-content');
-    if (content) { content.innerHTML = replaceTags(tpl.html); }
+    if (content) content.innerHTML = replaceTags(tpl.html);
     document.getElementById('rpt-preview-overlay').style.display = 'block';
   }
-  const d = tpl.savedAt ? new Date(tpl.savedAt).toLocaleDateString('en-US') : '';
-  alert('Template loaded' + (d ? ' (saved ' + d + ')' : '') + '.');
+}
+
+function deleteTemplate(name) {
+  if (!confirm('Delete template "' + name + '"?')) return;
+  const templates = getTemplateList();
+  delete templates[name];
+  localStorage.setItem('bionically_templates', JSON.stringify(templates));
+  populateTemplateList();
+}
+
+function populateTemplateList() {
+  const container = document.getElementById('rpt-saved-templates');
+  if (!container) return;
+  const templates = getTemplateList();
+  const names = Object.keys(templates);
+  if (!names.length) { container.innerHTML = '<span style="color:var(--text2);font-size:12px">No saved templates yet.</span>'; return; }
+  container.innerHTML = names.map(n => {
+    const t = templates[n];
+    const date = t.savedAt ? new Date(t.savedAt).toLocaleDateString('en-US') : '';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+      <span style="flex:1;font-size:13px;cursor:pointer" onclick="loadTemplate('${n.replace(/'/g,"\\'")}')">${n}</span>
+      <span style="font-size:11px;color:var(--text2)">${date}</span>
+      <button onclick="loadTemplate('${n.replace(/'/g,"\\'")}')" style="padding:3px 10px;background:var(--accent);border:none;color:#fff;border-radius:4px;font-size:11px;cursor:pointer">Load</button>
+      <button onclick="deleteTemplate('${n.replace(/'/g,"\\'")}')" style="padding:3px 10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:4px;font-size:11px;cursor:pointer">Delete</button>
+    </div>`;
+  }).join('');
 }
 
 function generateRecommendations() {
