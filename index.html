@@ -6,7 +6,7 @@
 <title>BionicAlly — Wi-Fi Health Report</title>
 <link rel="icon" href="favicon.ico" type="image/x-icon">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+<script src="https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 :root {
@@ -1485,6 +1485,7 @@ async function downloadPDF() {
   const btn = event?.target; if (btn) { btn.textContent = 'Generating PDF...'; btn.disabled = true; }
   try {
     const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+    if (!window.jspdf) throw new Error('jsPDF library not loaded. Please refresh the page and try again.');
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF('p', 'mm', 'a4');
     const pageW = 210, pageH = 297, margin = 10;
