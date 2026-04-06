@@ -572,7 +572,7 @@ function processResults(allResultsRaw, orgName) {
     d.tests.push({ id: r._id, date: r.created_at, color: r.overallColor, profile: r.profileName||'',
       rssi: r.linkSignalLevelMean, snr: r.linkSNRMean, noise: r.linkNoiseLevelMean,
       retry: r.linkRetryRateMean, phyRate: r.linkPhyDataRate, chanUtil: r.apChannelUtil,
-      problems: FAILURE_KEYS.flatMap(k => (r[k]||[]).filter(i => i && i !== 'Success')) });
+      problems: FAILURE_KEYS.flatMap(k => (r[k]||[]).filter(i => i && i !== 'Success')).filter(p => !EXCLUDED_FAILURES.includes(p.split(' (')[0])) });
   });
   const devices = Object.values(deviceMap);
   devices.forEach(d => {
