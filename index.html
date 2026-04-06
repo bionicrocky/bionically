@@ -206,6 +206,7 @@ canvas { cursor: pointer; }
     <button data-page="scoring" onclick="showPage('scoring')">Scoring</button>
     <button data-page="problems" onclick="showPage('problems')">Problems</button>
   </div>
+  <select id="org-switcher" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:4px 10px;font-size:12px;cursor:pointer;outline:none;max-width:220px" onchange="switchOrg(this.value)"></select>
   <div class="subtitle" id="org-name">Wi-Fi Health Report</div>
   <button class="chat-toggle" onclick="toggleChat()" id="chat-toggle-btn" title="Ask AI about your data">AI Chat</button>
   <button class="logout-btn" onclick="doLogout()">Sign Out</button>
@@ -447,24 +448,27 @@ async function handleLogin(e) {
     return;
   }
 
-  // Step 2: Org selected — re-auth with Basic creds for the selected org
+  // Step 2: Org selected — always re-auth with Basic creds for the selected org
   const selectedOrg = document.getElementById('login-org').value;
-  const currentOrg = _authData.context?.organization?._id || _authData.context?.organization?.id;
   status.textContent = 'Loading organization...';
   try {
-    if (selectedOrg !== currentOrg && _loginCreds) {
+    if (_loginCreds) {
       const res = await fetch(PROXY + 'https://id.link-live.com/v2/auth/login', {
         method: 'POST',
         headers: { 'Authorization': 'Basic ' + _loginCreds, 'Content-Type': 'application/json' },
         body: JSON.stringify({ claims: { app: '3pGv3iSAICObaFX7EjdojO', org: selectedOrg } })
       });
-      if (!res.ok) throw new Error('Failed to switch organization');
+      if (!res.ok) throw new Error('Failed to load organization (HTTP ' + res.status + ')');
       const newAuth = await res.json();
       _token = newAuth.accessToken;
       _authData = newAuth;
     }
-    _loginCreds = null; // flush credentials after org selection
-    const orgName = _authData.context?.orgMemberships?.find(o => (o.organization || o.id) === selectedOrg)?.name || 'Your Organization';
+    _loginCreds = null;
+    const orgName = _authData.context?.orgMemberships?.find(o => (o.organization || o.id) === selectedOrg)?.name
+      || _authData.context?.organization?.name || 'Your Organization';
+    // Store orgs for header switcher
+    window._orgs = (_authData.context?.orgMemberships || []).map(o => ({id: o.organization || o.id, name: o.name}));
+    window._currentOrgId = selectedOrg;
     await loadOrgData(orgName);
   } catch (ex) {
     err.textContent = ex.message; err.style.display = 'block'; status.textContent = '';
@@ -477,14 +481,43 @@ async function loadOrgData(orgName) {
   status.textContent = 'Loading Wi-Fi results for ' + orgName + '...';
   const results = await llGet('/results?offset=0&limit=200&sort=' + encodeURIComponent('{"created_at":-1}') + '&query=' + encodeURIComponent('{"resultType":"wireless"}'));
   status.textContent = 'Processing ' + results.length + ' results...';
-  // Destroy old charts
   Object.values(Chart.instances).forEach(c => c.destroy());
   const DATA = processResults(results, orgName);
   document.getElementById('login-overlay').style.display = 'none';
   document.getElementById('app-content').style.display = 'block';
   document.getElementById('org-name').textContent = orgName + ' — Wi-Fi Health Report';
   window.DATA = DATA;
+  // Populate header org switcher
+  const sw = document.getElementById('org-switcher');
+  if (window._orgs && window._orgs.length > 1) {
+    sw.innerHTML = ''; sw.style.display = '';
+    window._orgs.forEach(o => { const opt = document.createElement('option'); opt.value = o.id; opt.textContent = o.name; sw.appendChild(opt); });
+    sw.value = window._currentOrgId || '';
+  }
+  showPage('dashboard');
   renderDashboard(); renderDevices(); renderScoring(); renderProblems();
+}
+
+async function switchOrg(orgId) {
+  const org = (window._orgs||[]).find(o => o.id === orgId);
+  if (!org || !_token) return;
+  // Re-auth for the new org using current token
+  try {
+    document.getElementById('org-name').textContent = 'Switching to ' + org.name + '...';
+    const res = await fetch(PROXY + 'https://id.link-live.com/v2/auth/login', {
+      method: 'POST',
+      headers: { 'Authorization': 'Access ' + _token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ claims: { app: '3pGv3iSAICObaFX7EjdojO', org: orgId } })
+    });
+    if (!res.ok) throw new Error('Failed to switch org');
+    const newAuth = await res.json();
+    _token = newAuth.accessToken;
+    _authData = newAuth;
+    window._currentOrgId = orgId;
+    await loadOrgData(org.name);
+  } catch (e) {
+    alert('Error switching org: ' + e.message);
+  }
 }
 
 // ============================================================================
