@@ -149,7 +149,7 @@ canvas { cursor: pointer; }
 #rpt-preview-content th { background:#f5f5f5;padding:8px 10px;text-align:left;border:1px solid #ddd;font-weight:600;font-size:11px;text-transform:uppercase }
 #rpt-preview-content td { padding:6px 10px;border:1px solid #eee }
 #rpt-preview-content tr { page-break-inside:avoid }
-#rpt-preview-content .rpt-metric-box { display:inline-block;padding:8px 16px;background:#f8f9fa;border:1px solid #e0e0e0;border-radius:8px;margin:4px;text-align:center;min-width:120px }
+#rpt-preview-content .rpt-metric-box { display:inline-block;padding:8px 16px;background:#f8f9fa;border:1px solid #e0e0e0;border-radius:8px;margin:4px;text-align:center;min-width:100px;flex:1 }
 #rpt-preview-content .rpt-metric-box .val { font-size:22px;font-weight:700;font-family:-apple-system,sans-serif }
 #rpt-preview-content .rpt-metric-box .lbl { font-size:10px;color:#666;text-transform:uppercase }
 #rpt-preview-content .rpt-score-badge { display:inline-block;padding:4px 12px;border-radius:20px;font-weight:600;font-size:13px;font-family:-apple-system,sans-serif }
@@ -1539,7 +1539,7 @@ function renderReportSection(id) {
         <div style="font-size:64px;font-weight:800;color:${c};font-family:-apple-system,sans-serif">${sc}</div>
         <div style="font-size:16px;color:#666">Network Health Score ${scoreBadge(sc)}</div>
       </div>
-      <div style="text-align:center;margin:16px 0">${d.metrics.map(m => {const ms=METRIC_SUMMARIES[m.key]||{}; return `<div class="rpt-metric-box" style="text-align:center;min-width:140px;vertical-align:top"><div class="val" style="color:${scoreColor(m.score).replace('var(--green)','#8BC600').replace('var(--yellow)','#b8960b').replace('var(--red)','#d33')}">${m.avg!=null?(Math.abs(m.avg)>=10?Math.round(m.avg):m.avg.toFixed(1)):'N/A'}</div><div class="lbl">${m.name.replace(' (RSSI)','').replace('Signal-to-Noise Ratio','SNR')}</div>${ms.short?`<div style="font-size:10px;color:#888;margin-top:4px;line-height:1.3">${ms.short}</div><div style="font-size:10px;margin-top:2px"><a href="#appendix-metrics" style="color:#5B7F95">See details &#8594;</a></div>`:''}</div>`}).join('')}</div></div>`;
+      <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:16px 0">${d.metrics.map(m => `<div class="rpt-metric-box"><div class="val" style="color:${scoreColor(m.score).replace('var(--green)','#8BC600').replace('var(--yellow)','#b8960b').replace('var(--red)','#d33')}">${m.avg!=null?(Math.abs(m.avg)>=10?Math.round(m.avg):m.avg.toFixed(1)):'N/A'}</div><div class="lbl">${m.name.replace(' (RSSI)','').replace('Signal-to-Noise Ratio','SNR')}</div></div>`).join('')}</div></div>`;
     }
 
     case 'key_findings': {
