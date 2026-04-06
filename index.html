@@ -342,6 +342,9 @@ const BENCHMARKS = [
 ];
 const CONN_WEIGHT = 12, PROB_WEIGHT = 9;
 const FAILURE_KEYS = ['linkFailureReasons','apFailureReasons','ipConfigFailureReasons','airQualityFailureReasons','eapFailureReasons','failureReasons'];
+// Tests whose ONLY failure matches an excluded reason are filtered out entirely.
+// These are intentional user actions, not real problems. To re-enable, remove from this list.
+const EXCLUDED_FAILURES = ['Wi-Fi test port disabled'];
 const SOURCES = [
   {name:"Cisco Site Survey Guidelines",url:"https://www.cisco.com/c/en/us/support/docs/wireless/5500-series-wireless-controllers/116057-site-survey-guidelines-wlan-00.html"},
   {name:"Cisco Meraki SNR & Signal Strength",url:"https://documentation.meraki.com/Wireless/Design_and_Configure/Architecture_and_Best_Practices/Signal-to-Noise_Ratio_(SNR)_and_Wireless_Signal_Strength"},
@@ -506,7 +509,13 @@ function scoreMetric(values, good, accept, direction) {
   }, 0) / values.length;
 }
 
-function processResults(allResults, orgName) {
+function processResults(allResultsRaw, orgName) {
+  // Filter out tests whose ONLY failures are in EXCLUDED_FAILURES (intentional user actions)
+  const allResults = allResultsRaw.filter(r => {
+    const probs = FAILURE_KEYS.flatMap(k => (r[k]||[]).filter(i => i && i !== 'Success')).map(p => p.split(' (')[0]);
+    if (probs.length === 0) return true; // no problems — keep
+    return !probs.every(p => EXCLUDED_FAILURES.includes(p)); // keep if any problem is NOT excluded
+  });
   const connected = allResults.filter(r => typeof r.linkSignalLevelMean === 'number');
   const getVals = key => connected.map(r => r[key]).filter(v => typeof v === 'number');
 
@@ -536,6 +545,7 @@ function processResults(allResults, orgName) {
     FAILURE_KEYS.forEach(k => (r[k]||[]).forEach(item => {
       if (item && item !== 'Success') {
         const clean = item.split(' (')[0];
+        if (EXCLUDED_FAILURES.includes(clean)) return; // skip excluded
         problemSet.add(clean);
         problemCounter[clean] = (problemCounter[clean]||0) + 1;
         deviceProblems[unit][clean] = (deviceProblems[unit][clean]||0) + 1;
