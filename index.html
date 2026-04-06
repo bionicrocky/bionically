@@ -1228,6 +1228,7 @@ const RPT_SECTIONS = [
   {id:'wired_cable',label:'Cable Test Results',exec:false,tech:false},
   {id:'wired_ethernet',label:'Ethernet Link Results',exec:false,tech:false},
   {group:'Appendix'},
+  {id:'appendix_metrics',label:'Metric Definitions & Thresholds',exec:true,tech:true},
   {id:'appendix_methodology',label:'Scoring Methodology',exec:false,tech:true},
 ];
 
@@ -1342,19 +1343,41 @@ function buildTagReference() {
   if (ref) ref.innerHTML = tags.map(t => `<span style="padding:3px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;cursor:pointer;color:var(--accent2)" onclick="insertTagAtCursor('${t}')" title="Click to insert at cursor">&lt;#${t}#&gt;</span>`).join('');
 }
 
-function insertTagAtCursor(tag) {
+// Track last cursor position inside the report so tag clicks can restore it
+let _lastReportRange = null;
+document.addEventListener('selectionchange', () => {
   const sel = window.getSelection();
-  if (sel.rangeCount && document.getElementById('rpt-preview-content')?.contains(sel.anchorNode)) {
-    const range = sel.getRangeAt(0);
+  if (sel.rangeCount) {
+    const container = document.getElementById('rpt-preview-content');
+    if (container && container.contains(sel.anchorNode)) {
+      _lastReportRange = sel.getRangeAt(0).cloneRange();
+    }
+  }
+});
+
+function insertTagAtCursor(tag) {
+  const tagText = '<#' + tag + '#>';
+  const range = _lastReportRange;
+  if (range && document.getElementById('rpt-preview-content')?.contains(range.startContainer)) {
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
     range.deleteContents();
-    range.insertNode(document.createTextNode('<#' + tag + '#>'));
-    range.collapse(false);
+    const node = document.createTextNode(tagText);
+    range.insertNode(node);
+    range.setStartAfter(node);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+    _lastReportRange = range.cloneRange();
   } else {
-    // No cursor in the doc — copy to clipboard as fallback
-    navigator.clipboard.writeText('<#' + tag + '#>');
-    const ref = document.getElementById('rpt-tag-reference');
-    const orig = ref?.querySelector(`[onclick*="${tag}"]`);
-    if (orig) { const prev = orig.style.background; orig.style.background = 'var(--accent)'; orig.style.color = '#fff'; setTimeout(()=>{orig.style.background=prev;orig.style.color='var(--accent2)'},500); }
+    // No cursor — append to the first editable section and flash a hint
+    const firstEditable = document.querySelector('#rpt-preview-content [contenteditable]');
+    if (firstEditable) {
+      firstEditable.innerHTML += tagText;
+      firstEditable.style.outline = '2px solid #8BC600';
+      setTimeout(() => firstEditable.style.outline = '', 800);
+    }
   }
 }
 
@@ -1409,6 +1432,18 @@ function generateRecommendations() {
   return recs.slice(0, 5).join(' ');
 }
 
+// Plain-English metric summaries for reports
+const METRIC_SUMMARIES = {
+  linkSignalLevelMean: {short:'Measures how strong the Wi-Fi signal is at the device. Closer to zero is stronger.', good:'-30 to -65 dBm: Strong, reliable connection', ok:'-65 to -72 dBm: Adequate for basic data', bad:'Below -72 dBm: Weak, expect slow speeds and drops'},
+  linkSNRMean: {short:'The gap between the Wi-Fi signal and background noise. Higher is better.', good:'Above 25 dB: Excellent — supports voice, video, and high-speed data', ok:'20–25 dB: Acceptable for general data use', bad:'Below 20 dB: Poor — expect errors, retries, and low throughput'},
+  linkNoiseLevelMean: {short:'Background RF energy on the channel. Lower (more negative) means a cleaner environment.', good:'-90 dBm or below: Clean RF environment', ok:'-85 to -90 dBm: Minor interference present', bad:'Above -85 dBm: Significant interference degrading performance'},
+  apChannelUtil: {short:'How much of the available airtime is being used. Lower means more capacity available.', good:'Below 30%: Excellent capacity headroom', ok:'30–50%: Getting busy, monitor closely', bad:'Above 50%: Congested — users will experience slowdowns'},
+  apNon80211ChannelUtil: {short:'Airtime consumed by non-Wi-Fi devices like microwaves, Bluetooth, and cordless phones.', good:'Below 5%: Negligible interference', ok:'5–15%: Some interference, investigate source', bad:'Above 15%: Active interferer — locate and remove'},
+  linkRetryRateMean: {short:'Percentage of data frames that had to be re-sent. Lower means more efficient airtime use.', good:'Below 10%: Normal, healthy operation', ok:'10–20%: Elevated — investigate cause', bad:'Above 20%: Critical — significant airtime waste and latency'},
+  linkPhyDataRate: {short:'The negotiated connection speed between device and access point. Higher is faster.', good:'Above 400 Mbps: High-performance Wi-Fi 6 operation', ok:'100–400 Mbps: Adequate for most applications', bad:'Below 100 Mbps: Slow — likely poor signal or narrow channels'},
+  linkPhyPctOfMaxDataRateMean: {short:'How much of the device\'s maximum possible speed is being achieved. Higher means more efficient.', good:'Above 60%: Efficient use of radio capabilities', ok:'30–60%: Moderate — room for improvement', bad:'Below 30%: Device is severely limited by RF conditions'},
+};
+
 // ---- Section Renderers ----
 function renderReportSection(id) {
   const d = DATA;
@@ -1438,7 +1473,7 @@ function renderReportSection(id) {
         <div style="font-size:64px;font-weight:800;color:${c};font-family:-apple-system,sans-serif">${sc}</div>
         <div style="font-size:16px;color:#666">Network Health Score ${scoreBadge(sc)}</div>
       </div>
-      <div style="text-align:center;margin:16px 0">${d.metrics.map(m => `<div class="rpt-metric-box"><div class="val" style="color:${scoreColor(m.score).replace('var(--green)','#8BC600').replace('var(--yellow)','#b8960b').replace('var(--red)','#d33')}">${m.avg!=null?(Math.abs(m.avg)>=10?Math.round(m.avg):m.avg.toFixed(1)):'N/A'}</div><div class="lbl">${m.name.replace(' (RSSI)','').replace('Signal-to-Noise Ratio','SNR')}</div></div>`).join('')}</div></div>`;
+      <div style="text-align:center;margin:16px 0">${d.metrics.map(m => {const ms=METRIC_SUMMARIES[m.key]||{}; return `<div class="rpt-metric-box" style="text-align:center;min-width:140px;vertical-align:top"><div class="val" style="color:${scoreColor(m.score).replace('var(--green)','#8BC600').replace('var(--yellow)','#b8960b').replace('var(--red)','#d33')}">${m.avg!=null?(Math.abs(m.avg)>=10?Math.round(m.avg):m.avg.toFixed(1)):'N/A'}</div><div class="lbl">${m.name.replace(' (RSSI)','').replace('Signal-to-Noise Ratio','SNR')}</div>${ms.short?`<div style="font-size:10px;color:#888;margin-top:4px;line-height:1.3">${ms.short}</div><div style="font-size:10px;margin-top:2px"><a href="#appendix-metrics" style="color:#5B7F95">See details &#8594;</a></div>`:''}</div>`}).join('')}</div></div>`;
     }
 
     case 'key_findings': {
@@ -1476,8 +1511,10 @@ function renderReportSection(id) {
       const keyMap = {wifi_rssi:'linkSignalLevelMean',wifi_snr:'linkSNRMean',wifi_chanutil:'apChannelUtil',wifi_retry:'linkRetryRateMean',wifi_phyrate:'linkPhyDataRate'};
       const m = d.metrics.find(x=>x.key===keyMap[id]);
       if (!m) return '';
+      const ms = METRIC_SUMMARIES[m.key] || {};
       return `<div class="rpt-section"><h2>${m.name}</h2>
-      <p style="color:#555;font-style:italic;margin-bottom:12px">${m.detail || m.description}</p>
+      <p style="color:#555;margin-bottom:8px">${ms.short || m.description}</p>
+      <p style="font-size:12px;color:#888;margin-bottom:12px"><a href="#appendix-metrics" style="color:#5B7F95">See full metric definition in appendix &#8594;</a></p>
       <div style="display:flex;gap:16px;margin:12px 0;flex-wrap:wrap">
         <div class="rpt-metric-box"><div class="val">${m.avg!=null?(Math.abs(m.avg)>=10?Math.round(m.avg):m.avg.toFixed(1)):'N/A'}</div><div class="lbl">Average</div></div>
         <div class="rpt-metric-box"><div class="val">${m.min!=null?m.min:'—'}</div><div class="lbl">Min</div></div>
@@ -1519,6 +1556,31 @@ function renderReportSection(id) {
     case 'wired_summary': return `<div class="rpt-section"><h2>Wired Test Summary</h2><p contenteditable>Wired network testing was conducted to validate infrastructure supporting the wireless deployment. Results include cable certification, Ethernet link verification, and switch port analysis.</p><p style="color:#888;font-style:italic">Wired test data will appear here when wired results are loaded from Link-Live.</p></div>`;
     case 'wired_cable': return `<div class="rpt-section"><h2>Cable Test Results</h2><p style="color:#888;font-style:italic">Cable test data will appear here when loaded from Link-Live.</p></div>`;
     case 'wired_ethernet': return `<div class="rpt-section"><h2>Ethernet Link Results</h2><p style="color:#888;font-style:italic">Ethernet link data will appear here when loaded from Link-Live.</p></div>`;
+
+    case 'appendix_metrics': {
+      return `<div class="rpt-section" id="appendix-metrics"><h2>Appendix: Metric Definitions &amp; Thresholds</h2>
+      <p>Each metric below is measured by NetAlly test devices during automated network testing. Understanding what these metrics mean and their acceptable ranges is essential for interpreting the results in this report.</p>
+      ${d.metrics.map(m => {
+        const ms = METRIC_SUMMARIES[m.key] || {};
+        const goodDir = m.direction==='higher'?'≥':'≤';
+        const badDir = m.direction==='higher'?'below':'above';
+        return `<div style="margin:20px 0;padding:16px;border:1px solid #e0e0e0;border-radius:8px;page-break-inside:avoid">
+        <h3 style="margin:0 0 6px;font-size:16px">${m.name}</h3>
+        <p style="margin:0 0 10px;color:#555">${ms.short || m.description}</p>
+        <p style="margin:0 0 10px;font-size:13px">${m.detail || ''}</p>
+        <table style="margin:8px 0">
+          <thead><tr><th style="background:#e8f5e9;color:#2e7d32;width:33%">Good</th><th style="background:#fff8e1;color:#f57f17;width:33%">Acceptable</th><th style="background:#ffebee;color:#c62828;width:33%">Poor</th></tr></thead>
+          <tbody><tr>
+            <td style="vertical-align:top"><b>${goodDir} ${m.good} ${m.unit}</b><br><span style="font-size:12px;color:#666">${ms.good || ''}</span></td>
+            <td style="vertical-align:top"><b>${m.accept} ${m.unit}</b><br><span style="font-size:12px;color:#666">${ms.ok || ''}</span></td>
+            <td style="vertical-align:top"><b>${badDir} ${m.accept} ${m.unit}</b><br><span style="font-size:12px;color:#666">${ms.bad || ''}</span></td>
+          </tr></tbody>
+        </table>
+        <p style="font-size:11px;color:#999;margin:6px 0 0">Source: ${m.source} — Weight in health score: ${m.weight}%</p>
+        </div>`;
+      }).join('')}
+      </div>`;
+    }
 
     case 'appendix_methodology': return `<div class="rpt-section"><h2>Appendix: Scoring Methodology</h2>
       <p>The Network Health Score is a weighted composite of ${d.metrics.length} RF metrics plus connection success rate and problem diversity. Each metric is scored 0–100 using linear interpolation against industry-standard thresholds.</p>
