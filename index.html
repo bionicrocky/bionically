@@ -1192,7 +1192,9 @@ async function sendChat() {
 
 Be concise but thorough. Reference specific devices, dates, and metrics. When recommending fixes, reference industry standards (Cisco, CWNA, IEEE 802.11). Use markdown formatting.
 
-Here is the complete dataset:
+IMPORTANT: The following failure types have been intentionally excluded by the user and should NEVER be mentioned, analyzed, or counted as problems: ${EXCLUDED_FAILURES.map(f=>'"'+f+'"').join(', ')}. These are intentional user actions, not real failures. Ignore them completely in all analysis. Only analyze real Wi-Fi problems shown in the data below.
+
+Here is the complete dataset (with excluded failures already filtered out):
 
 ${buildDataSummary()}`;
 
