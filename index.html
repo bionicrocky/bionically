@@ -1004,7 +1004,9 @@ function showTestPopup(t) {
         return `<div style="margin-bottom:8px;padding:8px 12px;background:rgba(239,68,68,.06);border-left:3px solid var(--red);border-radius:6px;cursor:pointer" onclick="closePopup();showPage('problems');setTimeout(()=>showProblemDetail('${c.replace(/'/g,"\\'")}'),100)">
           <b style="font-size:13px">${c}</b> <span style="color:var(--red);font-size:11px">${kb.severity.toUpperCase()}</span>
           <p style="font-size:12px;color:var(--text2);margin:4px 0 0">${kb.what.substring(0,120)}... <span style="color:var(--accent2)">View details →</span></p></div>`}).join('')
-    : '<span style="color:var(--green)">No problems detected</span>';
+    : (t.color !== 'green'
+      ? '<div style="padding:8px 12px;background:rgba(234,179,8,.06);border-left:3px solid var(--yellow);border-radius:6px"><b style="font-size:13px;color:var(--yellow)">Test failed</b><p style="font-size:12px;color:var(--text2);margin:4px 0 0">No specific failure code was recorded. The test may have been aborted, timed out at a stage not captured in the failure fields, or encountered an infrastructure issue. Check the full result in Link-Live for details.</p></div>'
+      : '<span style="color:var(--green)">No problems detected</span>');
 
   const overlay = document.createElement('div');
   overlay.className = 'popup-overlay';
