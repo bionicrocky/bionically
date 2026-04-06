@@ -387,7 +387,7 @@ async function llGet(path) {
 }
 
 function doLogout() {
-  _token = null; _authData = null; _loginEmail = '';
+  _token = null; _authData = null; _loginEmail = ''; _loginCreds = null;
   document.getElementById('app-content').style.display = 'none';
   document.getElementById('login-overlay').style.display = 'flex';
   document.getElementById('login-password').value = '';
@@ -402,6 +402,7 @@ function doLogout() {
 // ============================================================================
 let _authData = null;
 let _loginEmail = '';
+let _loginCreds = null; // held in memory until org is selected, then flushed
 
 async function handleLogin(e) {
   e.preventDefault();
@@ -415,10 +416,11 @@ async function handleLogin(e) {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
     _loginEmail = email;
+    _loginCreds = btoa(email + ':' + password);
     status.textContent = 'Authenticating with Link-Live...';
     try {
       _authData = await llLogin(email, password);
-      document.getElementById('login-password').value = '';
+      document.getElementById('login-password').value = ''; // flush from DOM
       // Populate org dropdown
       const orgs = _authData.context?.orgMemberships || [];
       const sel = document.getElementById('login-org');
@@ -435,6 +437,7 @@ async function handleLogin(e) {
         return;
       }
       // Single org — skip picker, go straight to load
+      _loginCreds = null; // flush — no org switch needed
       await loadOrgData(_authData.context?.organization?.name || 'Your Organization');
     } catch (ex) {
       _authData = null;
@@ -444,28 +447,23 @@ async function handleLogin(e) {
     return;
   }
 
-  // Step 2: Org selected — re-auth for that org if different, then load
+  // Step 2: Org selected — re-auth with Basic creds for the selected org
   const selectedOrg = document.getElementById('login-org').value;
   const currentOrg = _authData.context?.organization?._id || _authData.context?.organization?.id;
-  status.textContent = 'Switching organization...';
+  status.textContent = 'Loading organization...';
   try {
-    if (selectedOrg !== currentOrg) {
-      // Re-login for the selected org
-      const creds = btoa(_loginEmail + ':' + ''); // Can't re-auth without password
-      // Use the existing token to get org-specific data by passing org header
-      // Actually the API filters by org in the token — need to re-login for a different org
-      // We'll use the refresh endpoint with org claim
+    if (selectedOrg !== currentOrg && _loginCreds) {
       const res = await fetch(PROXY + 'https://id.link-live.com/v2/auth/login', {
         method: 'POST',
-        headers: { 'Authorization': 'Access ' + _token, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': 'Basic ' + _loginCreds, 'Content-Type': 'application/json' },
         body: JSON.stringify({ claims: { app: '3pGv3iSAICObaFX7EjdojO', org: selectedOrg } })
       });
-      if (res.ok) {
-        const newAuth = await res.json();
-        _token = newAuth.accessToken;
-        _authData = newAuth;
-      }
+      if (!res.ok) throw new Error('Failed to switch organization');
+      const newAuth = await res.json();
+      _token = newAuth.accessToken;
+      _authData = newAuth;
     }
+    _loginCreds = null; // flush credentials after org selection
     const orgName = _authData.context?.orgMemberships?.find(o => (o.organization || o.id) === selectedOrg)?.name || 'Your Organization';
     await loadOrgData(orgName);
   } catch (ex) {
