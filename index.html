@@ -216,15 +216,15 @@ canvas { cursor: pointer; }
   <div id="page-dashboard" class="page active">
     <div class="stats-row" id="stats-row"></div>
     <div class="grid grid-2" style="margin-bottom:20px">
-      <div class="card card-lg gauge-wrap" id="gauge-card"></div>
-      <div class="card card-lg"><h3>Signal Strength Distribution</h3><div class="chart-container"><canvas id="chart-rssi"></canvas></div></div>
+      <div class="card card-lg gauge-wrap" id="gauge-card" style="cursor:pointer" onclick="showPage('scoring')"></div>
+      <div class="card card-lg" style="cursor:pointer" onclick="showMetricDetail(0)"><h3>Signal Strength Distribution <span style="font-weight:400;font-size:11px;color:var(--accent2)">click bars or title for details</span></h3><div class="chart-container"><canvas id="chart-rssi"></canvas></div></div>
     </div>
     <h3 style="margin-bottom:12px;font-size:15px;color:var(--text2)">Metric Scorecards <span style="font-weight:400;font-size:12px">(click for details)</span></h3>
     <div class="grid grid-5" id="metric-cards" style="margin-bottom:20px"></div>
     <div id="metric-detail" style="display:none"></div>
     <div class="grid grid-2">
-      <div class="card card-lg"><h3>SNR vs Retry Rate</h3><div class="chart-container"><canvas id="chart-scatter"></canvas></div></div>
-      <div class="card card-lg"><h3>Top Problems</h3><div class="chart-container"><canvas id="chart-problems"></canvas></div></div>
+      <div class="card card-lg"><h3 style="cursor:pointer" onclick="showMetricDetail(1)">SNR vs Retry Rate <span style="font-weight:400;font-size:11px;color:var(--accent2)">click dots for details</span></h3><div class="chart-container"><canvas id="chart-scatter"></canvas></div></div>
+      <div class="card card-lg"><h3 style="cursor:pointer" onclick="showPage('problems')">Top Problems <span style="font-weight:400;font-size:11px;color:var(--accent2)">click bars for details</span></h3><div class="chart-container"><canvas id="chart-problems"></canvas></div></div>
     </div>
   </div>
   <div id="page-devices" class="page">
@@ -658,7 +658,7 @@ function renderDashboard() {
   const sc = d.health_score;
   document.getElementById('gauge-card').innerHTML = `<canvas id="chart-gauge" width="200" height="120" style="margin:0 auto"></canvas>
     <div class="gauge-score" style="color:${scoreColor(sc)}">${sc}</div><div class="gauge-label">Wi-Fi Health Score</div>
-    <div style="margin-top:8px"><a href="#" onclick="showPage('scoring');return false" style="font-size:13px">How is this calculated? →</a></div>`;
+    <div style="margin-top:8px"><a href="#" onclick="event.stopPropagation();showPage('scoring');return false" style="font-size:13px">How is this calculated? →</a></div>`;
   drawGauge(sc);
   const allMetrics = [...d.metrics,
     {name:'Connection Success',unit:'%',avg:d.conn_success.rate,score:d.conn_success.score,weight:d.conn_success.weight,key:'_conn'},
